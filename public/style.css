@@ -81,6 +81,30 @@
     text-decoration: underline;
 }
 
+@media screen and (max-width: 1200px) {
+    #gallery {
+        padding: 3rem 5rem;
+        gap: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    #gallery>.day-project {
+        width: 40%;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    #gallery {
+        padding: 2rem;
+        gap: 1rem;
+    }
+    #gallery>.day-project {
+        width: 80%;
+    }
+}
+
+
+
 /* DAY 1 */
 #day1 {
     width: 100%;
