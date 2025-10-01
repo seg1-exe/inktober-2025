@@ -1,0 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&display=swap');
+.bebas-neue-regular {
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.cormorant-garamond-regular {
+  font-family: "Cormorant Garamond", serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* HOMEPAGE */
+
+
+
+/* DAY 1 */
+#day1 {
+    width: 100%;
+    background-color: #000000;
+}
+
+#day1>header {
+    width: 100%;
+    color: #fff;
+    height: 100vh;
+}
+
+#day1>header>.video-container {
+    width: 100%;
+    height: 100%;
+}
+#day1>header>.video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#day1>header>h1 {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 16rem;
+    z-index: 1;
+    line-height: 80%;
+}
+
+#day1>main {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5rem 10rem;
+    gap: 2rem;
+    color: #fff;
+}
+
+#day1>main>.text-container {
+    text-align: left;
+    color: #fff;
+    font-size: 2rem;
+    font-style: italic;
+}
+
+#day1>main>.text-container>a, #day1>main>.text-container>a:visited{
+    font-style: normal;
+    color: #fff;
+    text-decoration: none;
+}
+
+#day1>main>.text-container>a:hover {
+    text-decoration: underline;
+}
+
+#day1>footer{
+    width: 100%;
+    height: 100px;
+    background-color: #000;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+#day1>footer>p>a, #day1>footer>p>a:visited, #day1>footer>a, #day1>footer>a:visited {
+    color: #fff;
+    text-decoration: none;
+}
+
+#day1>footer>p>a:hover, #day1>footer>a:hover {
+    text-decoration: underline;
+}
+
+.mobile-only {
+    display: none;
+}
+
+@media (max-width: 1200px) {
+    #day1>main {
+        padding: 3rem 5rem;
+    }
+    #day1>header>h1 {
+        font-size: 12rem;
+    }
+}
+
+@media (max-width: 900px) {
+    #day1>main {
+        padding: 3rem;
+    }
+    #day1>header>h1 {
+        font-size: 10rem;
+    }
+    #day1>main>.text-container {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    #day1>main {
+        flex-direction: column;
+        padding: 2rem;
+    }
+    #day1>main>.text-container {
+        font-size: 1.5rem;
+        text-align: center;
+    }
+    #day1>header>h1 {
+        font-size: 8rem;
+        bottom: 5px;
+        left: 5px;
+    }
+    .pc-only {
+        display: none;
+    }
+    .mobile-only {
+        display: block;
+    }
+}
+
+@media (max-width: 500px) {
+    #day1>header>h1 {
+        font-size: 6rem;
+    }
+    #day1>main>.text-container {
+        font-size: 1.2rem;
+    }
+}
+
