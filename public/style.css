@@ -33,6 +33,7 @@
 
 #gallery {
     display: flex;
+    justify-content: space-around;
     padding: 5rem 10rem;
 }
 
@@ -239,3 +240,19 @@
     }
 }
 
+/* DAY 2 */
+#day2 {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+    background: #f5f5f5;
+}
+#day2>canvas {
+    border: 1px solid #333;
+    margin-top: 15px;
+}
+#day2>.controls {
+    margin: 10px 0;
+}
