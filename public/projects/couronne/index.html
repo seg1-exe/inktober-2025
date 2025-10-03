@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inktober 2025 - Couronne</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: linear-gradient(135deg, #111, #333);
+      font-family: sans-serif;
+      display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      margin: auto;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .crown {
+      position: absolute;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    canvas#confetti {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    @media screen and (max-width: 768px) {
+      body {
+        background: #000;
+      }
+      .container {
+        width: 100%;
+        height: 100%;  
+        max-width: none;
+        aspect-ratio: auto; 
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <video id="inputVideo" autoplay playsinline muted></video>
+    <canvas id="confetti"></canvas>
+  </div>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <!-- Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <script>
+    const video = document.getElementById("inputVideo");
+    const container = document.querySelector(".container");
+    const canvas = document.getElementById("confetti");
+    const confetti = window.confetti.create(canvas, { resize: true, useWorker: true });
+
+    const faceDetection = new FaceDetection({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+    });
+
+    faceDetection.setOptions({
+    model: 'short',
+    minDetectionConfidence: 0.6
+    });
+
+    let prevFaceCount = 0;
+
+    faceDetection.onResults(results => {
+    document.querySelectorAll(".crown").forEach(c => c.remove());
+
+    if (results.detections.length > 0) {
+        const currentFaceCount = results.detections.length;
+
+        if (currentFaceCount > prevFaceCount) {
+        confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 }
+        });
+        }
+        prevFaceCount = currentFaceCount;
+
+        results.detections.forEach(face => {
+        const box = face.boundingBox;
+        const xCenter = box.xCenter * video.offsetWidth;
+        const yCenter = box.yCenter * video.offsetHeight;
+        const faceHeight = box.height * video.offsetHeight;
+        const faceWidth = box.width * video.offsetWidth;
+
+        const crown = document.createElement("img");
+        crown.src = "crown.png";
+        crown.className = "crown";
+
+        const isMobile = window.innerWidth <= 768;
+        const scale = isMobile ? 2.2 : 1.2;
+        const verticalOffset = isMobile ? 1.5 : 1.6;
+
+        crown.style.width = (faceWidth * scale) + "px";
+        crown.style.left = (video.offsetWidth - xCenter - (faceWidth * scale) / 2) + "px";
+        crown.style.top = (yCenter - faceHeight * verticalOffset) + "px";
+
+        container.appendChild(crown);
+        });
+    } else {
+        prevFaceCount = 0;
+    }
+    });
+
+    const camera = new Camera(video, {
+    onFrame: async () => {
+        await faceDetection.send({ image: video });
+    },
+    width: 640,
+    height: 480
+    });
+    camera.start();
+
+    window.addEventListener("resize", () => {
+    canvas.width = container.offsetWidth;
+    canvas.height = container.offsetHeight;
+    });
+
+
+  </script>
+</body>
+</html>
