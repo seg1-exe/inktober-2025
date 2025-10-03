@@ -77,75 +77,100 @@
 
   <script>
     const video = document.getElementById("inputVideo");
-    const container = document.querySelector(".container");
-    const canvas = document.getElementById("confetti");
-    const confetti = window.confetti.create(canvas, { resize: true, useWorker: true });
+const container = document.querySelector(".container");
+const canvas = document.getElementById("confetti");
+const confetti = window.confetti.create(canvas, { resize: true, useWorker: true });
 
-    const faceDetection = new FaceDetection({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
-    });
+const faceDetection = new FaceDetection({
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+});
 
-    faceDetection.setOptions({
-    model: 'short',
-    minDetectionConfidence: 0.6
-    });
+faceDetection.setOptions({
+  model: 'short',
+  minDetectionConfidence: 0.6
+});
 
-    let prevFaceCount = 0;
+let prevFaceCount = 0;
+let prevPositions = [];
 
-    faceDetection.onResults(results => {
-    document.querySelectorAll(".crown").forEach(c => c.remove());
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
 
-    if (results.detections.length > 0) {
-        const currentFaceCount = results.detections.length;
+faceDetection.onResults(results => {
+  document.querySelectorAll(".crown").forEach(c => c.remove());
 
-        if (currentFaceCount > prevFaceCount) {
-        confetti({
-            particleCount: 80,
-            spread: 70,
-            origin: { y: 0.6 }
-        });
-        }
-        prevFaceCount = currentFaceCount;
+  if (results.detections.length > 0) {
+    const currentFaceCount = results.detections.length;
 
-        results.detections.forEach(face => {
-        const box = face.boundingBox;
-        const xCenter = box.xCenter * video.offsetWidth;
-        const yCenter = box.yCenter * video.offsetHeight;
-        const faceHeight = box.height * video.offsetHeight;
-        const faceWidth = box.width * video.offsetWidth;
-
-        const crown = document.createElement("img");
-        crown.src = "crown.png";
-        crown.className = "crown";
-
-        const isMobile = window.innerWidth <= 768;
-        const scale = isMobile ? 1.2 : 1.4;
-        const verticalOffset = isMobile ? 1.5 : 1.6;
-
-        crown.style.width = (faceWidth * scale) + "px";
-        crown.style.left = (video.offsetWidth - xCenter - (faceWidth * scale) / 2) + "px";
-        crown.style.top = (yCenter - faceHeight * verticalOffset) + "px";
-
-        container.appendChild(crown);
-        });
-    } else {
-        prevFaceCount = 0;
+    if (currentFaceCount > prevFaceCount) {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
-    });
+    prevFaceCount = currentFaceCount;
 
-    const camera = new Camera(video, {
-    onFrame: async () => {
-        await faceDetection.send({ image: video });
-    },
-    width: 640,
-    height: 480
-    });
-    camera.start();
+    results.detections.forEach((face, i) => {
+      const box = face.boundingBox;
+      const xCenter = box.xCenter * video.offsetWidth;
+      const yCenter = box.yCenter * video.offsetHeight;
+      const faceHeight = box.height * video.offsetHeight;
+      const faceWidth = box.width * video.offsetWidth;
 
-    window.addEventListener("resize", () => {
-    canvas.width = container.offsetWidth;
-    canvas.height = container.offsetHeight;
+      const isMobile = window.innerWidth <= 768;
+      const scale = isMobile ? 1.5 : 1.2;
+      const verticalOffset = isMobile ? 1.5 : 1.6;
+
+      const target = {
+        width: faceWidth * scale,
+        left: video.offsetWidth - xCenter - (faceWidth * scale) / 2,
+        top: yCenter - faceHeight * verticalOffset
+      };
+
+      if (!prevPositions[i]) {
+        prevPositions[i] = target;
+      }
+
+      const smooth = {
+        width: lerp(prevPositions[i].width, target.width, 0.2),
+        left: lerp(prevPositions[i].left, target.left, 0.2),
+        top: lerp(prevPositions[i].top, target.top, 0.2)
+      };
+
+      prevPositions[i] = smooth;
+
+      const crown = document.createElement("img");
+      crown.src = "crown.png";
+      crown.className = "crown";
+
+      crown.style.width = smooth.width + "px";
+      crown.style.left = smooth.left + "px";
+      crown.style.top = smooth.top + "px";
+
+      container.appendChild(crown);
     });
+  } else {
+    prevFaceCount = 0;
+    prevPositions = [];
+  }
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await faceDetection.send({ image: video });
+  },
+  width: 640,
+  height: 480
+});
+camera.start();
+
+window.addEventListener("resize", () => {
+  canvas.width = container.offsetWidth;
+  canvas.height = container.offsetHeight;
+});
+
 
 
   </script>
