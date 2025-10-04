@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trouble Vision - Lag + Blur</title>
+  <title>Trouble Vision - Miroir</title>
   <style>
     body {
       margin: 0;
@@ -69,15 +69,18 @@
       if (frame) {
         let blurAmount = 0;
         const diff = getFrameDiff(currentFrame, prevFrameData);
-        if (diff > 20) blurAmount = 5; // seuil et intensité du flou
+        if (diff > 20) blurAmount = 5;
 
+        ctx.save();
+        ctx.scale(-1, 1); // miroir horizontal
         ctx.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : "none";
 
         for (let y = 0; y < canvas.height; y += 2) {
           const offset = Math.sin(Date.now() / 3000 + y / 50) * 3;
-          ctx.drawImage(frame, 0, y, canvas.width, 2, offset, y, canvas.width, 2);
+          ctx.drawImage(frame, 0, y, canvas.width, 2, -canvas.width + offset, y, canvas.width, 2);
         }
 
+        ctx.restore();
         ctx.filter = "none";
 
         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
