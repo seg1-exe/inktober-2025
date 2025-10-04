@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trouble Vision - Lag + Blur</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+    }
+    video { display: none; }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const frameBuffer = [];
+    const delayFrames = 6;
+    let prevFrameData = null;
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        video.srcObject = stream;
+        await video.play();
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        animate();
+      } catch (err) {
+        console.error("Erreur caméra :", err);
+      }
+    }
+
+    function getFrameDiff(current, prev) {
+      if (!prev) return 0;
+      let diff = 0;
+      for (let i = 0; i < current.data.length; i += 4*20) {
+        diff += Math.abs(current.data[i] - prev.data[i]);
+      }
+      return diff / (current.data.length / (4*20));
+    }
+
+    function animate() {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const currentFrame = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+
+      frameBuffer.push(tempCanvas);
+      if (frameBuffer.length > delayFrames) frameBuffer.shift();
+
+      const frame = frameBuffer[0];
+      if (frame) {
+        let blurAmount = 0;
+        const diff = getFrameDiff(currentFrame, prevFrameData);
+        if (diff > 20) blurAmount = 5; // seuil et intensité du flou
+
+        ctx.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : "none";
+
+        for (let y = 0; y < canvas.height; y += 2) {
+          const offset = Math.sin(Date.now() / 3000 + y / 50) * 3;
+          ctx.drawImage(frame, 0, y, canvas.width, 2, offset, y, canvas.width, 2);
+        }
+
+        ctx.filter = "none";
+
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        const t = Date.now() / 7000;
+        for (let i = 0; i <= 1; i += 0.25) {
+          gradient.addColorStop(i, `hsl(${(t*360 + i*360)%360},100%,50%)`);
+        }
+        ctx.globalAlpha = 0.25;
+        ctx.globalCompositeOperation = "overlay";
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+      }
+
+      prevFrameData = currentFrame;
+      requestAnimationFrame(animate);
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
