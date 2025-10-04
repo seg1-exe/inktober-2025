@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trouble Vision - Miroir</title>
+  <title>Trouble Vision - Caméra Switch</title>
   <style>
     body {
       margin: 0;
@@ -17,24 +17,66 @@
       object-fit: cover;
     }
     video { display: none; }
+
+    button {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.8);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   <video id="video" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
+  <button id="switchCam">Changer caméra</button>
 
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const switchBtn = document.getElementById("switchCam");
+
+    let currentFacing = "user"; // caméra par défaut : avant
+    let stream = null;
 
     const frameBuffer = [];
     const delayFrames = 6;
     let prevFrameData = null;
 
-    async function startCamera() {
+    let blurWaveActive = false;
+    let blurWaveStart = 0;
+    let blurWaveDuration = 2000;
+
+    function triggerBlurWave() {
+      if (!blurWaveActive) {
+        blurWaveActive = true;
+        blurWaveStart = Date.now();
+        setTimeout(() => { blurWaveActive = false; }, blurWaveDuration);
+      }
+    }
+
+    setInterval(() => {
+      if (Math.random() < 0.2) triggerBlurWave();
+    }, 3000);
+
+    async function startCamera(facingMode = "user") {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: facingMode }, 
+          audio: false 
+        });
         video.srcObject = stream;
         await video.play();
         canvas.width = video.videoWidth;
@@ -72,16 +114,32 @@
         if (diff > 20) blurAmount = 5;
 
         ctx.save();
-        ctx.scale(-1, 1); // miroir horizontal
+        if (currentFacing === "user") ctx.scale(-1, 1);
+
         ctx.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : "none";
-
         for (let y = 0; y < canvas.height; y += 2) {
-          const offset = Math.sin(Date.now() / 3000 + y / 50) * 3;
-          ctx.drawImage(frame, 0, y, canvas.width, 2, -canvas.width + offset, y, canvas.width, 2);
+          const offset = Math.sin(Date.now() / 3000 + y / 50) * 2;
+          ctx.drawImage(
+            frame, 
+            0, y, canvas.width, 2, 
+            currentFacing === "user" ? -canvas.width + offset : offset, 
+            y, 
+            canvas.width, 2
+          );
         }
-
         ctx.restore();
         ctx.filter = "none";
+
+        if (blurWaveActive) {
+          const elapsed = Date.now() - blurWaveStart;
+          const progress = elapsed / blurWaveDuration;
+          const strength = Math.sin(progress * Math.PI);
+          ctx.globalAlpha = 0.8 * strength;
+          ctx.filter = `blur(${10 * strength}px)`;
+          ctx.drawImage(canvas, 0, 0);
+          ctx.filter = "none";
+          ctx.globalAlpha = 1;
+        }
 
         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
         const t = Date.now() / 7000;
@@ -101,7 +159,12 @@
       requestAnimationFrame(animate);
     }
 
-    startCamera();
+    switchBtn.addEventListener("click", () => {
+      currentFacing = currentFacing === "user" ? "environment" : "user";
+      startCamera(currentFacing);
+    });
+
+    startCamera(currentFacing);
   </script>
 </body>
 </html>
