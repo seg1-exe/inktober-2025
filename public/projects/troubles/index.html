@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trouble Vision - Caméra Switch</title>
+  <title>Trouble Vision - Psyché</title>
   <style>
     body {
       margin: 0;
@@ -17,18 +17,15 @@
       object-fit: cover;
     }
     video { display: none; }
-
     button {
       position: fixed;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       padding: 10px 20px;
-      font-size: 16px;
       border: none;
       border-radius: 8px;
       background: rgba(255,255,255,0.8);
-      color: #000;
       font-weight: bold;
       cursor: pointer;
     }
@@ -45,12 +42,12 @@
     const ctx = canvas.getContext('2d');
     const switchBtn = document.getElementById("switchCam");
 
-    let currentFacing = "user"; // caméra par défaut : avant
+    let currentFacing = "user";
     let stream = null;
 
     const frameBuffer = [];
-    const delayFrames = 6;
-    let prevFrameData = null;
+    const delayFrames = 35; // ~500ms de retard
+    let prevImageData = null;
 
     let blurWaveActive = false;
     let blurWaveStart = 0;
@@ -66,15 +63,13 @@
 
     setInterval(() => {
       if (Math.random() < 0.2) triggerBlurWave();
-    }, 3000);
+    }, 4000);
 
     async function startCamera(facingMode = "user") {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      if (stream) stream.getTracks().forEach(track => track.stop());
       try {
         stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: facingMode }, 
+          video: { facingMode }, 
           audio: false 
         });
         video.srcObject = stream;
@@ -90,10 +85,11 @@
     function getFrameDiff(current, prev) {
       if (!prev) return 0;
       let diff = 0;
-      for (let i = 0; i < current.data.length; i += 4*20) {
+      const step = 4 * 30;
+      for (let i = 0; i < current.data.length; i += step) {
         diff += Math.abs(current.data[i] - prev.data[i]);
       }
-      return diff / (current.data.length / (4*20));
+      return diff / (current.data.length / step);
     }
 
     function animate() {
@@ -102,31 +98,31 @@
       tempCanvas.height = canvas.height;
       const tempCtx = tempCanvas.getContext("2d");
       tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const currentFrame = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+      const currentImageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
 
       frameBuffer.push(tempCanvas);
       if (frameBuffer.length > delayFrames) frameBuffer.shift();
 
-      const frame = frameBuffer[0];
-      if (frame) {
-        let blurAmount = 0;
-        const diff = getFrameDiff(currentFrame, prevFrameData);
-        if (diff > 20) blurAmount = 5;
+      const delayedFrame = frameBuffer[0];
+      if (delayedFrame) {
+        const diff = getFrameDiff(currentImageData, prevImageData);
 
         ctx.save();
         if (currentFacing === "user") ctx.scale(-1, 1);
 
-        ctx.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : "none";
+        ctx.filter = diff > 15 ? "blur(40px)" : "none";
+
         for (let y = 0; y < canvas.height; y += 2) {
-          const offset = Math.sin(Date.now() / 3000 + y / 50) * 2;
+          const offset = Math.sin(Date.now() / 4000 + y / 60) * 2;
           ctx.drawImage(
-            frame, 
-            0, y, canvas.width, 2, 
-            currentFacing === "user" ? -canvas.width + offset : offset, 
-            y, 
+            delayedFrame,
+            0, y, canvas.width, 2,
+            currentFacing === "user" ? -canvas.width + offset : offset,
+            y,
             canvas.width, 2
           );
         }
+
         ctx.restore();
         ctx.filter = "none";
 
@@ -134,8 +130,8 @@
           const elapsed = Date.now() - blurWaveStart;
           const progress = elapsed / blurWaveDuration;
           const strength = Math.sin(progress * Math.PI);
-          ctx.globalAlpha = 0.8 * strength;
-          ctx.filter = `blur(${10 * strength}px)`;
+          ctx.globalAlpha = 0.9 * strength;
+          ctx.filter = `blur(${40 * strength}px)`;
           ctx.drawImage(canvas, 0, 0);
           ctx.filter = "none";
           ctx.globalAlpha = 1;
@@ -146,7 +142,7 @@
         for (let i = 0; i <= 1; i += 0.25) {
           gradient.addColorStop(i, `hsl(${(t*360 + i*360)%360},100%,50%)`);
         }
-        ctx.globalAlpha = 0.25;
+        ctx.globalAlpha = 0.3;
         ctx.globalCompositeOperation = "overlay";
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -155,7 +151,7 @@
         ctx.globalCompositeOperation = "source-over";
       }
 
-      prevFrameData = currentFrame;
+      prevImageData = currentImageData;
       requestAnimationFrame(animate);
     }
 
