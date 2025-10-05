@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inktober 2025 - Jour 5</title>
+    <style>
+        body { margin:0; background:#23223F; display:flex; justify-content:center; align-items:center; height:100vh; }
+    </style>
+</head>
+<body>
+    <canvas id="game" width="960" height="540" style="background:#000;display:block;margin:auto;"></canvas>
+    <script>
+        const SCREEN_W = 960, SCREEN_H = 540;
+        const VIRT_W   = 320, VIRT_H   = 180;
+
+        const screen = document.getElementById('game');
+        const sctx   = screen.getContext('2d');
+        sctx.imageSmoothingEnabled = false;
+
+        const world = document.createElement('canvas');
+        world.width = VIRT_W; world.height = VIRT_H;
+        const ctx = world.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        // ---------- State ----------
+        let running = false;
+        let gameOver = false;
+        let score = 0;
+
+        let deerX = 32;
+        let deerY = 140;
+        let velY = 0;
+        const GROUND_Y = 140;
+
+        // Saut réglé pour plus de hauteur/longueur
+        const GRAV = 0.20;    
+        const JUMP_FORCE = -6.2;
+
+        const obstacles = [];
+
+        // ---------- Cerf PNG ----------
+        const deerImg = new Image();
+        deerImg.src = "/projects/cerf/cerf.png"; // <-- adapte le chemin
+        let deerW = 0, deerH = 0;
+
+        deerImg.onload = () => {
+        deerW = deerImg.width/8;
+        deerH = deerImg.height/8;
+        requestAnimationFrame(loop);
+        };
+
+        // ---------- Nouveaux assets ----------
+        const solImg = new Image();
+        solImg.src = "/projects/cerf/ground.png";
+
+        const arbreImgs = [new Image(), new Image(), new Image()];
+        arbreImgs[0].src = "/projects/cerf/tree1.png";
+        arbreImgs[1].src = "/projects/cerf/tree2.png";
+        arbreImgs[2].src = "/projects/cerf/tree3.png";
+
+        // ---------- Obstacles ----------
+        function spawnTree() {
+        const sprite = arbreImgs[Math.floor(Math.random()*arbreImgs.length)];
+        const scale = 0.1; // facteur d’agrandissement des arbres
+        obstacles.push({
+            x: VIRT_W + 20,
+            y: GROUND_Y - sprite.height * scale + 8,
+            w: sprite.width * scale,
+            h: sprite.height * scale,
+            spr: sprite,
+            scale: scale
+        });
+        }
+
+        // ---------- Input ----------
+        document.addEventListener('keydown', (e)=>{
+        if (e.code === 'Space') {
+            if (!running && !gameOver) {
+            running = true;
+            } else if (running && deerY >= GROUND_Y) {
+            velY = JUMP_FORCE;
+            } else if (gameOver) {
+            restartGame();
+            }
+        }
+        });
+
+        // ---------- Update ----------
+        let treeTimer = 0;
+        let speed = 2.4;
+
+        function update(dt) {
+        velY += GRAV;
+        deerY += velY;
+        if (deerY >= GROUND_Y) { deerY = GROUND_Y; velY = 0; }
+
+        treeTimer -= dt;
+        if (treeTimer <= 0 && running) {
+            spawnTree();
+            treeTimer = 1.5 + Math.random()*1.0;
+        }
+
+        for (const o of obstacles) {
+            o.x -= speed * (dt * 60);
+        }
+
+        // Collision avec hitbox réduite
+        const hitbox = {
+            x: deerX + 4,
+            y: deerY - (deerH * 0.7),
+            w: deerW - 8,
+            h: deerH * 0.7
+        };
+        for (const o of obstacles) {
+            if (hitbox.x < o.x + o.w &&
+                hitbox.x + hitbox.w > o.x &&
+                hitbox.y < o.y + o.h &&
+                hitbox.y + hitbox.h > o.y) {
+            gameOver = true;
+            running = false;
+            }
+        }
+
+        while (obstacles.length && obstacles[0].x+obstacles[0].w < -10) obstacles.shift();
+
+
+        if (running) {
+            score += speed * dt * 10;
+            speed = 2.4 + score / 500; // accélération progressive
+        }
+        }
+
+
+
+        // ---------- Draw ----------
+        function drawBackground() {
+        // Ciel
+        ctx.fillStyle = "#87ceeb";
+        ctx.fillRect(0,0,VIRT_W,GROUND_Y);
+
+        // Sol répété
+        if (solImg.complete) {
+            for (let x=0; x<VIRT_W; x+=solImg.width) {
+            ctx.drawImage(solImg, x, GROUND_Y, solImg.width, solImg.height);
+            }
+        }
+        }
+
+        function draw() {
+        drawBackground();
+
+        // Obstacles (arbres PNG, redimensionnés)
+        for (const o of obstacles) {
+            if (o.spr.complete) {
+            ctx.drawImage(o.spr, o.x|0, o.y|0, o.w, o.h);
+            }
+        }
+
+        // Cerf (réduit de moitié)
+        if (deerImg.complete && deerImg.naturalWidth > 0) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(deerImg, deerX, deerY-deerH, deerW, deerH);
+        }
+
+        // Score
+        ctx.fillStyle = '#111';
+        ctx.fillRect(4,4,90,12);
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.fillText("SCORE " + Math.floor(score), 8, 13);
+
+        if (!running && !gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0,0,VIRT_W,VIRT_H);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px monospace';
+            ctx.fillText("Appuie ESPACE pour jouer", 60, 90);
+        }
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0,0,VIRT_W,VIRT_H);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px monospace';
+            ctx.fillText("GAME OVER", 120, 80);
+            ctx.fillText("Score: " + Math.floor(score), 120, 100);
+            ctx.fillText("Appuie ESPACE pour recommencer", 40, 120);
+            }
+        }
+
+        // ---------- Restart ----------
+        function restartGame() {
+        score = 0;
+        deerY = GROUND_Y;
+        velY = 0;
+        obstacles.length = 0;
+        gameOver = false;
+        running = true;
+        }
+
+        // ---------- Loop ----------
+        let last = performance.now();
+        function loop(now){
+        const dt = Math.min(0.05, (now-last)/1000);
+        last = now;
+
+        if (running && !gameOver) update(dt);
+
+        ctx.clearRect(0,0,VIRT_W,VIRT_H);
+        draw();
+
+        sctx.clearRect(0,0,SCREEN_W,SCREEN_H);
+        sctx.drawImage(world,0,0,SCREEN_W,SCREEN_H);
+
+        requestAnimationFrame(loop);
+        }
+    </script>
+
+
+
+</body>
+</html>
