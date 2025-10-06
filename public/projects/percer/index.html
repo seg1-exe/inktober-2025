@@ -9,22 +9,17 @@
       height: 100%;
       margin: 0;
     }
-
     body {
       overflow: hidden;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
-
     #bgVideo {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       object-fit: cover;
       z-index: 0;
     }
-
     #maskCanvas {
       position: fixed;
       inset: 0;
@@ -33,32 +28,27 @@
       display: block;
       cursor: crosshair;
       z-index: 1;
-      image-rendering: optimizeQuality;
     }
-
     .hint {
       position: fixed;
-      left: 50%;
-      bottom: 16px;
+      left: 50%; bottom: 16px;
       transform: translateX(-50%);
       background: rgba(0,0,0,.5);
       color: #fff;
       padding: 8px 12px;
       border-radius: 999px;
-      font-size: clamp(12px, 2vw, 16px); /* adaptatif */
+      font-size: clamp(12px, 2vw, 16px);
       z-index: 2;
       user-select: none;
       pointer-events: none;
-      letter-spacing: .2px;
       max-width: 90%;
       text-align: center;
     }
   </style>
 </head>
 <body>
-  <video id="bgVideo" autoplay muted loop playsinline>
+  <video id="bgVideo" muted playsinline loop>
     <source src="/projects/percer/background.mp4" type="video/mp4">
-    Votre navigateur ne supporte pas la vidéo en arrière-plan.
   </video>
 
   <canvas id="maskCanvas"></canvas>
@@ -70,34 +60,50 @@
       const canvas = document.getElementById('maskCanvas');
       const ctx = canvas.getContext('2d');
       const audio = document.getElementById('bgAudio');
+      const video = document.getElementById('bgVideo');
       let audioStarted = false;
 
       function randBetween(min, max) {
         return Math.random() * (max - min) + min;
       }
 
-      function resizeCanvas() {
+      function resizePreserving() {
+        // snapshot avant resize
+        const prev = document.createElement('canvas');
+        prev.width = canvas.width;
+        prev.height = canvas.height;
+        prev.getContext('2d').drawImage(canvas, 0, 0);
+
+        // nouvelle taille
         const dpr = Math.max(1, window.devicePixelRatio || 1);
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // voile noir
         fillOverlay();
+
+        // réapplique les anciens trous proportionnellement
+        if (prev.width && prev.height) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.drawImage(prev, 0, 0, prev.width, prev.height,
+                             0, 0, canvas.clientWidth, canvas.clientHeight);
+          ctx.restore();
+        }
       }
 
       function fillOverlay() {
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = `rgba(0, 0, 0, 1)`;
+        ctx.fillStyle = `rgba(0,0,0,1)`;
         ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
         ctx.restore();
       }
 
       function randomPolygonPath(cx, cy) {
         const path = new Path2D();
-        const minSides = 3;
-        const maxSides = 10;
-        const sides = Math.floor(Math.random() * (maxSides - minSides + 1)) + minSides;
-        // tailles adaptatives (plus petites sur mobile)
+        const sides = Math.floor(randBetween(3, 10));
         const baseRadius = randBetween(30, Math.min(window.innerWidth, window.innerHeight) / 5);
         const jitter = 0.45;
         const angleOffset = Math.random() * Math.PI * 2;
@@ -108,8 +114,7 @@
           const r = baseRadius * (1 + (Math.random() * 2 - 1) * jitter);
           const x = cx + Math.cos(angle) * r;
           const y = cy + Math.sin(angle) * r;
-          if (i === 0) path.moveTo(x, y);
-          else path.lineTo(x, y);
+          if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
         }
         path.closePath();
         return path;
@@ -118,15 +123,17 @@
       function carveAt(x, y) {
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
-        const poly = randomPolygonPath(x, y);
-        ctx.fill(poly);
+        ctx.fill(randomPolygonPath(x, y));
         ctx.restore();
       }
 
       function handlePointer(pos) {
         carveAt(pos.x, pos.y);
+
+        // déclenche audio + vidéo sur mobile
         if (!audioStarted) {
-          audio.play().catch(err => console.log(err));
+          video.play().catch(e => console.log("Video play blocked:", e));
+          audio.play().catch(e => console.log("Audio play blocked:", e));
           audioStarted = true;
         }
       }
@@ -144,21 +151,17 @@
         return { x: clientX - rect.left, y: clientY - rect.top };
       }
 
-      canvas.addEventListener('click', (e) => {
-        handlePointer(getCanvasPos(e));
-      });
-
+      canvas.addEventListener('click', (e) => handlePointer(getCanvasPos(e)));
       canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         handlePointer(getCanvasPos(e));
       }, { passive: false });
 
-      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('resize', resizePreserving);
 
       function init() {
-        resizeCanvas();
+        resizePreserving();
       }
-
       init();
     })();
   </script>
