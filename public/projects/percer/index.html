@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Canvas – Polygones qui révèlent la vidéo de fond</title>
+  <title>Inktober 2025 - Jour 6</title>
   <style>
     html, body {
       height: 100%;
@@ -12,13 +12,6 @@
     body {
       overflow: hidden;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    }
-    #bgVideo {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      z-index: 0;
     }
     #maskCanvas {
       position: fixed;
@@ -67,7 +60,7 @@
 
   <canvas id="maskCanvas"></canvas>
   <div class="hint">Clique (ou touche) pour percer le mur</div>
-  <audio id="bgAudio" src="/projects/percer/yume-summer.mp3" type="audio/mpeg">
+  <audio id="bgAudio" src="/projects/percer/yume-summer.mp3"></audio>
 
   <script>
     (function(){
