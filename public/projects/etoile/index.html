@@ -110,7 +110,7 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center; /* ✅ centre horizontalement */
+    align-items: center;
   }
 
   #aquarium {
@@ -123,9 +123,8 @@
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
-    margin: 0 auto; /* ✅ centre le bloc dans la page */
+    margin: 0 auto;
   }
-
 
   #aquariumCanvas {
     width: 100%;
@@ -187,18 +186,18 @@
     <button id="downloadAquariumBtn">Télécharger une photo</button>
   </div>
 </div>
+<audio id="bgAudio" src="/projects/etoile/music.mp3" loop preload="auto"></audio>
 
 <script>
   const rand = (min, max) => Math.random() * (max - min) + min;
 
-  // Resize helper
+  // --- Canvas responsive
   function resizeCanvas(canvas) {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width;
     canvas.height = rect.height;
   }
 
-  // Preview canvas responsive
   const starCanvas = document.getElementById("starfishCanvas");
   const starCtx = starCanvas.getContext("2d");
 
@@ -270,7 +269,7 @@
   }));
   renderPreview();
 
-  // Aquarium responsive
+  // --- Aquarium
   const aquariumCanvas = document.getElementById("aquariumCanvas");
   const ctx = aquariumCanvas.getContext("2d");
   resizeCanvas(aquariumCanvas);
@@ -301,7 +300,6 @@
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, aquariumCanvas.width, aquariumCanvas.height);
 
-    // bulles
     for (const b of bubbles) {
       b.y -= b.s;
       if (b.y < -5) {
@@ -314,7 +312,6 @@
       ctx.fill();
     }
 
-    // étoiles
     for (const s of stars) {
       s.rotation += s.rotationSpeed * 0.01;
       drawStarfish(ctx, s.x, s.y, s.arms, s.armLength, s.armWidth, s.color, 0.7, s.rotation);
@@ -325,12 +322,29 @@
   requestAnimationFrame(animate);
 
   document.getElementById("addToAquariumBtn").addEventListener("click", addToAquarium);
-
   document.getElementById("downloadAquariumBtn").addEventListener("click", () => {
     const a = document.createElement("a");
     a.download = "mon-aquarium.png";
     a.href = aquariumCanvas.toDataURL("image/png");
     a.click();
+  });
+
+  // --- 🔊 Lecture audio après première action
+  const bgAudio = document.getElementById("bgAudio");
+  bgAudio.volume = 0.4;
+  let audioStarted = false;
+
+  function startAudio() {
+    if (!audioStarted) {
+      bgAudio.play().catch(() => {});
+      audioStarted = true;
+    }
+  }
+
+  // déclenche sur tous les boutons
+  document.querySelectorAll("button, input[type=range]").forEach(el => {
+    el.addEventListener("click", startAudio);
+    el.addEventListener("input", startAudio);
   });
 </script>
 </body>
