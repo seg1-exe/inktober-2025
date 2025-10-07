@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Inktober 2025 — Imprudent</title>
   <style>
     html, body {
@@ -26,11 +26,11 @@
       background: #222;
       border: 2px solid #fff;
       box-shadow: 0 0 30px #fff2;
-      height: 95vh;
-      aspect-ratio: 4 / 5;
-      width: auto;
-      max-width: 95vw;
       display: block;
+      width: 95vw;
+      height: 95vh;
+      max-width: 500px;
+      max-height: 625px;
     }
 
     #gameOverScreen {
@@ -82,14 +82,12 @@
     const finalScoreText = document.getElementById("finalScore");
     const restartBtn = document.getElementById("restartBtn");
 
-    const baseWidth = 400;
-    const baseHeight = 500;
-    canvas.width = baseWidth;
-    canvas.height = baseHeight;
-
+    let baseWidth = 400;
+    let baseHeight = 500;
     const laneHeight = 80;
     const lanes = 6;
     const safeZoneHeight = laneHeight * 0.8;
+    const playerSize = 20;
 
     const carColors = [
       "#3498db", "#f1c40f", "#2ecc71", "#9b59b6", "#95a5a6",
@@ -105,14 +103,24 @@
     let maxRouteReached = 0;
     let gameOver = false;
     let animationId = null;
-    const playerSize = 20;
+
+    function resizeCanvas() {
+      const ratio = baseWidth / baseHeight;
+      const w = Math.min(window.innerWidth * 0.95, 500);
+      const h = w / ratio;
+      canvas.width = w;
+      canvas.height = h;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
     function getBandCenterY(laneIndex, size = playerSize) {
-      return laneIndex * laneHeight + laneHeight - size / 2;
+      return laneIndex * (canvas.height / (baseHeight / laneHeight)) + (canvas.height / (baseHeight / laneHeight)) - size / 2;
     }
 
     const player = {
-      x: 180,
+      x: canvas.width / 2 - playerSize / 2,
       y: getBandCenterY(lanes - 1, playerSize),
       size: playerSize,
       color: "#e74c3c",
@@ -122,23 +130,22 @@
         this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
       },
       reset() {
-        this.x = 180;
+        this.x = canvas.width / 2 - this.size / 2;
         this.y = getBandCenterY(lanes - 1, this.size);
       }
     };
 
     function createCars() {
       cars = [];
-      const carH = 40;
-
+      const carH = 40 * (canvas.height / baseHeight);
       for (let i = 0; i < lanes - 1; i++) {
-        const routeY = i * laneHeight;
-        const carY = routeY + laneHeight - carH / 2;
-
+        const laneH = canvas.height / (baseHeight / laneHeight);
+        const routeY = i * laneH;
+        const carY = routeY + laneH - carH / 2;
         cars.push({
           x: Math.random() * canvas.width,
           y: carY,
-          w: 70,
+          w: 70 * (canvas.width / baseWidth),
           h: carH,
           color: carColors[Math.floor(Math.random() * carColors.length)],
           speed: baseSpeed + Math.random() * difficulty,
@@ -160,26 +167,21 @@
 
     function movePlayer(direction) {
       if (gameOver) return;
-
-      let laneIndex = Math.round((player.y + player.size / 2) / laneHeight) - 1;
-
+      let laneIndex = Math.round((player.y + player.size / 2) / (canvas.height / (baseHeight / laneHeight))) - 1;
+      const step = canvas.height / (baseHeight / laneHeight);
       if (direction === "up") laneIndex--;
       if (direction === "down") {
         if (laneIndex >= lanes - 1) return;
         laneIndex++;
       }
-
-      if (direction === "left") player.move(-40, 0);
-      if (direction === "right") player.move(40, 0);
-
+      if (direction === "left") player.move(-40 * (canvas.width / baseWidth), 0);
+      if (direction === "right") player.move(40 * (canvas.width / baseWidth), 0);
       player.y = getBandCenterY(laneIndex);
-
-      const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / laneHeight);
+      const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / step);
       if (currentRoute > maxRouteReached) {
         score++;
         maxRouteReached = currentRoute;
       }
-
       if (player.y <= 0) {
         player.y = getBandCenterY(lanes - 1);
         difficulty += 0.3;
@@ -216,35 +218,29 @@
     });
 
     function drawRoad(y) {
+      const laneH = canvas.height / (baseHeight / laneHeight);
       ctx.fillStyle = "#2b2b2b";
-      ctx.fillRect(0, y, canvas.width, laneHeight);
+      ctx.fillRect(0, y, canvas.width, laneH);
       ctx.strokeStyle = "#ccc";
       ctx.lineWidth = 3;
       ctx.setLineDash([25, 25]);
       ctx.beginPath();
-      ctx.moveTo(0, y + laneHeight / 2);
-      ctx.lineTo(canvas.width, y + laneHeight / 2);
+      ctx.moveTo(0, y + laneH / 2);
+      ctx.lineTo(canvas.width, y + laneH / 2);
       ctx.stroke();
       ctx.setLineDash([]);
     }
 
     function drawSafeZone(y) {
-      const tileSize = 20;
+      const tileSize = 20 * (canvas.width / baseWidth);
       const cols = Math.floor(canvas.width / tileSize);
-      const rows = Math.floor(safeZoneHeight / tileSize);
+      const rows = Math.floor(safeZoneHeight / (baseHeight / laneHeight) * (canvas.height / laneHeight));
       const offsetX = (canvas.width - cols * tileSize) / 2;
-      const offsetY = y + (safeZoneHeight - rows * tileSize);
-
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const isWhite = (row + col) % 2 === 0;
           ctx.fillStyle = isWhite ? "#fff" : "#000";
-          ctx.fillRect(
-            offsetX + col * tileSize,
-            offsetY + row * tileSize,
-            tileSize,
-            tileSize
-          );
+          ctx.fillRect(offsetX + col * tileSize, y + row * tileSize, tileSize, tileSize);
         }
       }
     }
@@ -254,9 +250,6 @@
       ctx.fillRect(car.x, car.y, car.w, car.h);
       ctx.fillStyle = "#ccc";
       ctx.fillRect(car.x + car.w * 0.25, car.y + car.h * 0.2, car.w * 0.5, car.h * 0.6);
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillRect(car.x + car.w * 0.25, car.y + 4, car.w * 0.5, 6);
-      ctx.fillRect(car.x + car.w * 0.25, car.y + car.h - 10, car.w * 0.5, 6);
     }
 
     function update() {
@@ -265,7 +258,6 @@
         if (car.dir === 1 && car.x > canvas.width) car.x = -car.w;
         if (car.dir === -1 && car.x + car.w < 0) car.x = canvas.width;
       }
-
       for (const car of cars) {
         if (rectsCollide(player, car)) {
           endGame();
@@ -276,18 +268,15 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (let i = 0; i < lanes - 1; i++) drawRoad(i * laneHeight);
-      drawSafeZone(canvas.height - safeZoneHeight);
-
+      const laneH = canvas.height / (baseHeight / laneHeight);
+      for (let i = 0; i < lanes - 1; i++) drawRoad(i * laneH);
+      drawSafeZone(canvas.height - safeZoneHeight * (canvas.height / baseHeight));
       for (const car of cars) drawCar(car);
-
       ctx.fillStyle = player.color;
       ctx.fillRect(player.x, player.y, player.size, player.size);
-
       ctx.fillStyle = "#fff";
-      ctx.font = "18px monospace";
-      ctx.fillText("Routes traversées : " + score, 10, 25);
+      ctx.font = `${18 * (canvas.width / baseWidth)}px monospace`;
+      ctx.fillText("Routes traversées : " + score, 10, 25 * (canvas.height / baseHeight));
     }
 
     function loop() {
