@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inktober 2025 — Imprudent</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #111;
+      overflow: hidden;
+      font-family: monospace;
+      touch-action: none;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      background: #222;
+      border: 2px solid #fff;
+      box-shadow: 0 0 30px #fff2;
+      height: 95vh;
+      aspect-ratio: 4 / 5;
+      width: auto;
+      max-width: 95vw;
+      display: block;
+    }
+
+    #gameOverScreen {
+      position: absolute;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      text-align: center;
+      z-index: 10;
+    }
+
+    #restartBtn {
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+
+    #restartBtn:hover {
+      background: #f55;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="gameOverScreen">
+    <h1>Perdu ! Tu as été imprudent !</h1>
+    <p id="finalScore"></p>
+    <button id="restartBtn">Rejouer</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const finalScoreText = document.getElementById("finalScore");
+    const restartBtn = document.getElementById("restartBtn");
+
+    const baseWidth = 400;
+    const baseHeight = 500;
+    canvas.width = baseWidth;
+    canvas.height = baseHeight;
+
+    const laneHeight = 80;
+    const lanes = 6;
+    const safeZoneHeight = laneHeight * 0.8;
+
+    const carColors = [
+      "#3498db", "#f1c40f", "#2ecc71", "#9b59b6", "#95a5a6",
+      "#ff7f50", "#1abc9c", "#ff69b4", "#ffa500", "#00ced1",
+      "#8e44ad", "#bdc3c7", "#16a085", "#c0392b", "#2e86de",
+      "#e67e22", "#27ae60", "#f39c12"
+    ];
+
+    let cars = [];
+    let baseSpeed = 2;
+    let difficulty = 1;
+    let score = 0;
+    let maxRouteReached = 0;
+    let gameOver = false;
+    let animationId = null;
+    const playerSize = 20;
+
+    function getBandCenterY(laneIndex, size = playerSize) {
+      return laneIndex * laneHeight + laneHeight - size / 2;
+    }
+
+    const player = {
+      x: 180,
+      y: getBandCenterY(lanes - 1, playerSize),
+      size: playerSize,
+      color: "#e74c3c",
+      move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+        this.x = Math.max(0, Math.min(canvas.width - this.size, this.x));
+      },
+      reset() {
+        this.x = 180;
+        this.y = getBandCenterY(lanes - 1, this.size);
+      }
+    };
+
+    function createCars() {
+      cars = [];
+      const carH = 40;
+
+      for (let i = 0; i < lanes - 1; i++) {
+        const routeY = i * laneHeight;
+        const carY = routeY + laneHeight - carH / 2;
+
+        cars.push({
+          x: Math.random() * canvas.width,
+          y: carY,
+          w: 70,
+          h: carH,
+          color: carColors[Math.floor(Math.random() * carColors.length)],
+          speed: baseSpeed + Math.random() * difficulty,
+          dir: Math.random() > 0.5 ? 1 : -1
+        });
+      }
+    }
+
+    createCars();
+
+    function rectsCollide(a, b) {
+      return !(
+        a.x + a.size < b.x ||
+        a.x > b.x + b.w ||
+        a.y + a.size < b.y ||
+        a.y > b.y + b.h
+      );
+    }
+
+    function movePlayer(direction) {
+      if (gameOver) return;
+
+      let laneIndex = Math.round((player.y + player.size / 2) / laneHeight) - 1;
+
+      if (direction === "up") laneIndex--;
+      if (direction === "down") {
+        if (laneIndex >= lanes - 1) return;
+        laneIndex++;
+      }
+
+      if (direction === "left") player.move(-40, 0);
+      if (direction === "right") player.move(40, 0);
+
+      player.y = getBandCenterY(laneIndex);
+
+      const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / laneHeight);
+      if (currentRoute > maxRouteReached) {
+        score++;
+        maxRouteReached = currentRoute;
+      }
+
+      if (player.y <= 0) {
+        player.y = getBandCenterY(lanes - 1);
+        difficulty += 0.3;
+        baseSpeed += 0.1;
+        createCars();
+        maxRouteReached = 0;
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") movePlayer("up");
+      if (e.key === "ArrowDown") movePlayer("down");
+      if (e.key === "ArrowLeft") movePlayer("left");
+      if (e.key === "ArrowRight") movePlayer("right");
+    });
+
+    let touchStartX = 0, touchStartY = 0;
+    canvas.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+    });
+    canvas.addEventListener("touchend", (e) => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 30) movePlayer("right");
+        else if (dx < -30) movePlayer("left");
+      } else {
+        if (dy > 30) movePlayer("down");
+        else if (dy < -30) movePlayer("up");
+      }
+    });
+
+    function drawRoad(y) {
+      ctx.fillStyle = "#2b2b2b";
+      ctx.fillRect(0, y, canvas.width, laneHeight);
+      ctx.strokeStyle = "#ccc";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([25, 25]);
+      ctx.beginPath();
+      ctx.moveTo(0, y + laneHeight / 2);
+      ctx.lineTo(canvas.width, y + laneHeight / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawSafeZone(y) {
+      const tileSize = 20;
+      const cols = Math.floor(canvas.width / tileSize);
+      const rows = Math.floor(safeZoneHeight / tileSize);
+      const offsetX = (canvas.width - cols * tileSize) / 2;
+      const offsetY = y + (safeZoneHeight - rows * tileSize);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const isWhite = (row + col) % 2 === 0;
+          ctx.fillStyle = isWhite ? "#fff" : "#000";
+          ctx.fillRect(
+            offsetX + col * tileSize,
+            offsetY + row * tileSize,
+            tileSize,
+            tileSize
+          );
+        }
+      }
+    }
+
+    function drawCar(car) {
+      ctx.fillStyle = car.color;
+      ctx.fillRect(car.x, car.y, car.w, car.h);
+      ctx.fillStyle = "#ccc";
+      ctx.fillRect(car.x + car.w * 0.25, car.y + car.h * 0.2, car.w * 0.5, car.h * 0.6);
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.fillRect(car.x + car.w * 0.25, car.y + 4, car.w * 0.5, 6);
+      ctx.fillRect(car.x + car.w * 0.25, car.y + car.h - 10, car.w * 0.5, 6);
+    }
+
+    function update() {
+      for (const car of cars) {
+        car.x += car.speed * car.dir;
+        if (car.dir === 1 && car.x > canvas.width) car.x = -car.w;
+        if (car.dir === -1 && car.x + car.w < 0) car.x = canvas.width;
+      }
+
+      for (const car of cars) {
+        if (rectsCollide(player, car)) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < lanes - 1; i++) drawRoad(i * laneHeight);
+      drawSafeZone(canvas.height - safeZoneHeight);
+
+      for (const car of cars) drawCar(car);
+
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "18px monospace";
+      ctx.fillText("Routes traversées : " + score, 10, 25);
+    }
+
+    function loop() {
+      update();
+      draw();
+      if (!gameOver) animationId = requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      gameOver = true;
+      cancelAnimationFrame(animationId);
+      const routeText = score <= 1 ? `${score} route traversée` : `${score} routes traversées`;
+      finalScoreText.textContent = `Score final : ${routeText}`;
+      gameOverScreen.style.display = "flex";
+    }
+
+    function restart() {
+      score = 0;
+      baseSpeed = 2;
+      difficulty = 1;
+      maxRouteReached = 0;
+      player.reset();
+      createCars();
+      gameOver = false;
+      gameOverScreen.style.display = "none";
+      loop();
+    }
+
+    restartBtn.addEventListener("click", restart);
+    loop();
+  </script>
+</body>
+</html>
