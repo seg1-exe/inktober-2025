@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Générateur d’étoiles de mer – Aquarium apaisant</title>
+<style>
+  body {
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(to bottom right, #a1d9ff, #ffe3c2);
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem;
+    box-sizing: border-box;
+  }
+
+  h1 {
+    margin-bottom: 1rem;
+    text-align: center;
+    color: #004e64;
+  }
+
+  #generator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  canvas {
+    background: radial-gradient(circle at center, #87c9ff 0%, #006b88 100%);
+    border-radius: 50%;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 350px;
+    margin-top: 1.5rem;
+    background: rgba(255,255,255,0.8);
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  label {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: #ff7b00;
+  }
+
+  input[type="color"] {
+    border: none;
+    width: 100%;
+    height: 2rem;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+
+  button {
+    background: #ff7b00;
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.1s ease, background 0.2s;
+  }
+
+  button:hover {
+    background: #ff9944;
+    transform: translateY(-2px);
+  }
+
+  #aquariumContainer {
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  #aquarium {
+    width: 90vw;
+    max-width: 800px;
+    height: 400px;
+    background: linear-gradient(to bottom, #1d7ea5, #004d61);
+    border: 8px solid #2b6777;
+    border-radius: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+  }
+
+  #aquariumCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .aquarium-buttons {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>🪸 Générateur d’étoiles de mer</h1>
+
+<div id="generator">
+  <canvas id="starfishCanvas" width="300" height="300"></canvas>
+
+  <div class="controls">
+    <label>Nombre de bras : <span id="armsValue">5</span></label>
+    <input type="range" id="arms" min="3" max="10" value="5">
+
+    <label>Longueur des bras : <span id="lengthValue">80</span></label>
+    <input type="range" id="length" min="40" max="120" value="80">
+
+    <label>Largeur des bras : <span id="widthValue">0.5</span></label>
+    <input type="range" id="width" min="0.2" max="1" step="0.1" value="0.5">
+
+    <label>Couleur :</label>
+    <input type="color" id="color" value="#ff7b00">
+
+    <div class="buttons">
+      <button id="addToAquariumBtn">🐠 Ajouter à l’aquarium</button>
+      <button id="downloadBtn">📸 Télécharger</button>
+    </div>
+  </div>
+</div>
+
+<div id="aquariumContainer">
+  <h2>🌊 Mon Aquarium</h2>
+  <div id="aquarium">
+    <canvas id="aquariumCanvas" width="800" height="400"></canvas>
+  </div>
+  <div class="aquarium-buttons">
+    <button id="downloadAquariumBtn">📷 Télécharger une photo</button>
+  </div>
+</div>
+
+<script>
+  // === Générateur d’étoile ===
+  const starCanvas = document.getElementById('starfishCanvas');
+  const starCtx = starCanvas.getContext('2d');
+
+  const controls = {
+    arms: document.getElementById('arms'),
+    length: document.getElementById('length'),
+    width: document.getElementById('width'),
+    color: document.getElementById('color'),
+  };
+
+  const values = {
+    armsValue: document.getElementById('armsValue'),
+    lengthValue: document.getElementById('lengthValue'),
+    widthValue: document.getElementById('widthValue'),
+  };
+
+  function drawStarfish(ctx, x, y, arms, armLength, armWidth, color, scale = 1, rotate = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotate);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+
+    for (let i = 0; i < arms; i++) {
+      const angle = (Math.PI * 2 / arms) * i;
+      const nextAngle = (Math.PI * 2 / arms) * (i + 1);
+      const x1 = Math.cos(angle) * armLength;
+      const y1 = Math.sin(angle) * armLength;
+      const x2 = Math.cos(nextAngle) * armLength;
+      const y2 = Math.sin(nextAngle) * armLength;
+      ctx.lineTo(x1 * armWidth, y1 * armWidth);
+      ctx.quadraticCurveTo(
+        Math.cos(angle + (nextAngle - angle)/2) * (armLength * 1.1),
+        Math.sin(angle + (nextAngle - angle)/2) * (armLength * 1.1),
+        x2 * armWidth,
+        y2 * armWidth
+      );
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    for (let i = 0; i < 50; i++) {
+      const r = Math.random() * (armLength * 0.8);
+      const a = Math.random() * Math.PI * 2;
+      const px = Math.cos(a) * r * armWidth;
+      const py = Math.sin(a) * r * armWidth;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function renderPreview() {
+    const arms = parseInt(controls.arms.value);
+    const armLength = parseFloat(controls.length.value);
+    const armWidth = parseFloat(controls.width.value);
+    const color = controls.color.value;
+
+    starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+    drawStarfish(starCtx, starCanvas.width/2, starCanvas.height/2, arms, armLength, armWidth, color);
+  }
+
+  Object.keys(controls).forEach(key => {
+    controls[key].addEventListener('input', () => {
+      if (values[key + 'Value']) values[key + 'Value'].textContent = controls[key].value;
+      renderPreview();
+    });
+  });
+
+  renderPreview();
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'etoile-de-mer.png';
+    link.href = starCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // === Aquarium ===
+  const aquariumCanvas = document.getElementById('aquariumCanvas');
+  const ctx = aquariumCanvas.getContext('2d');
+  const stars = [];
+  const bubbles = [];
+
+  for (let i = 0; i < 40; i++) {
+    bubbles.push({
+      x: Math.random() * aquariumCanvas.width,
+      y: Math.random() * aquariumCanvas.height,
+      radius: Math.random() * 4 + 1,
+      speed: Math.random() * 0.15 + 0.05, // 🐢 RALENTI
+      alpha: Math.random() * 0.3 + 0.2
+    });
+  }
+
+  function addToAquarium() {
+    const arms = parseInt(controls.arms.value);
+    const armLength = parseFloat(controls.length.value);
+    const armWidth = parseFloat(controls.width.value);
+    const color = controls.color.value;
+
+    const x = Math.random() * aquariumCanvas.width;
+    const y = Math.random() * aquariumCanvas.height;
+    const scale = 0.5 + Math.random() * 0.8;
+    const rotation = Math.random() * Math.PI * 2;
+
+    // 🐢 Rotation très lente
+    const rotationSpeed = (Math.random() * 0.0004 + 0.0001) * (Math.random() < 0.5 ? -1 : 1);
+    const floatAmplitude = Math.random() * 5 + 2;
+    const floatSpeed = Math.random() * 0.002 + 0.0008;
+
+    stars.push({ x, baseY: y, y, arms, armLength, armWidth, color, scale, rotation, rotationSpeed, floatAmplitude, floatSpeed });
+  }
+
+  let dragging = null;
+
+  function drawCaustics(t) {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      const waveOffset = i * 30;
+      for (let x = 0; x < aquariumCanvas.width; x += 10) {
+        const y = Math.sin(x * 0.02 + t * 0.001 + waveOffset) * 10 +
+                  Math.cos(x * 0.03 + t * 0.0005) * 8 + (i * 60);
+        ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = `rgba(255,255,255,0.5)`;
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  function drawBubbles() {
+    for (const b of bubbles) {
+      b.y -= b.speed;
+      if (b.y < -10) {
+        b.y = aquariumCanvas.height + 10;
+        b.x = Math.random() * aquariumCanvas.width;
+      }
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${b.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  function animateAquarium(t) {
+    ctx.clearRect(0, 0, aquariumCanvas.width, aquariumCanvas.height);
+    const gradient = ctx.createLinearGradient(0, 0, 0, aquariumCanvas.height);
+    gradient.addColorStop(0, '#1d7ea5');
+    gradient.addColorStop(1, '#004d61');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, aquariumCanvas.width, aquariumCanvas.height);
+
+    drawCaustics(t);
+    drawBubbles();
+
+    for (const s of stars) {
+      if (s !== dragging) {
+        s.rotation += s.rotationSpeed;
+        s.y = s.baseY + Math.sin(t * s.floatSpeed + s.baseY) * s.floatAmplitude;
+      }
+      drawStarfish(ctx, s.x, s.y, s.arms, s.armLength, s.armWidth, s.color, s.scale, s.rotation);
+    }
+
+    requestAnimationFrame(animateAquarium);
+  }
+
+  aquariumCanvas.addEventListener('mousedown', e => {
+    const rect = aquariumCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    for (const s of [...stars].reverse()) {
+      const dx = x - s.x;
+      const dy = y - s.y;
+      if (Math.sqrt(dx*dx + dy*dy) < s.armLength * s.scale) {
+        dragging = s;
+        break;
+      }
+    }
+  });
+
+  aquariumCanvas.addEventListener('mousemove', e => {
+    if (dragging) {
+      const rect = aquariumCanvas.getBoundingClientRect();
+      dragging.x = e.clientX - rect.left;
+      dragging.baseY = e.clientY - rect.top;
+    }
+  });
+
+  aquariumCanvas.addEventListener('mouseup', () => dragging = null);
+  aquariumCanvas.addEventListener('mouseleave', () => dragging = null);
+
+  aquariumCanvas.addEventListener('dblclick', e => {
+    const rect = aquariumCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    for (let i = stars.length - 1; i >= 0; i--) {
+      const s = stars[i];
+      const dx = x - s.x;
+      const dy = y - s.y;
+      if (Math.sqrt(dx*dx + dy*dy) < s.armLength * s.scale) {
+        stars.splice(i, 1);
+        break;
+      }
+    }
+  });
+
+  document.getElementById('addToAquariumBtn').addEventListener('click', addToAquarium);
+  document.getElementById('downloadAquariumBtn').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'mon-aquarium.png';
+    link.href = aquariumCanvas.toDataURL('image/png');
+    link.click();
+  });
+
+  function animate(t = 0) {
+    animateAquarium(t);
+    requestAnimationFrame(animate);
+  }
+  animate();
+</script>
+</body>
+</html>
