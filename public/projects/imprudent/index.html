@@ -104,17 +104,14 @@
     let gameOver = false;
     let animationId = null;
 
-    // Ajuste le canvas sans déformation
     function fitCanvasToScreen() {
       const ratio = baseWidth / baseHeight;
       let w = window.innerWidth * 0.95;
       let h = w / ratio;
-
       if (h > window.innerHeight * 0.95) {
         h = window.innerHeight * 0.95;
         w = h * ratio;
       }
-
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
     }
@@ -131,6 +128,7 @@
       y: getBandCenterY(lanes - 1, playerSize),
       size: playerSize,
       color: "#e74c3c",
+      jumping: false,
       move(dx, dy) {
         this.x += dx;
         this.y += dy;
@@ -145,11 +143,9 @@
     function createCars() {
       cars = [];
       const carH = 40;
-
       for (let i = 0; i < lanes - 1; i++) {
         const routeY = i * laneHeight;
         const carY = routeY + laneHeight - carH / 2;
-
         cars.push({
           x: Math.random() * canvas.width,
           y: carY,
@@ -161,23 +157,54 @@
         });
       }
     }
-
     createCars();
 
     function rectsCollide(a, b) {
-      return !(
-        a.x + a.size < b.x ||
-        a.x > b.x + b.w ||
-        a.y + a.size < b.y ||
-        a.y > b.y + b.h
-      );
+      return !(a.x + a.size < b.x || a.x > b.x + b.w || a.y + a.size < b.y || a.y > b.y + b.h);
+    }
+
+    function animateJump(targetY, laneIndex) {
+      player.jumping = true;
+      const startY = player.y;
+      const duration = 150;
+      const startTime = performance.now();
+
+      function jumpFrame(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const lift = Math.sin(progress * Math.PI) * 10;
+        player.y = startY + (targetY - startY) * progress - lift;
+
+        if (progress < 1) {
+          requestAnimationFrame(jumpFrame);
+        } else {
+          player.y = targetY;
+          player.jumping = false;
+
+          // ✅ Vérifie la position finale uniquement à la fin du saut
+          const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / laneHeight);
+          if (currentRoute > maxRouteReached) {
+            score++;
+            maxRouteReached = currentRoute;
+          }
+
+          // ✅ Réinitialisation uniquement si on est réellement au sommet
+          if (laneIndex < 0) {
+            player.y = getBandCenterY(lanes - 1);
+            difficulty += 0.3;
+            baseSpeed += 0.1;
+            createCars();
+            maxRouteReached = 0;
+          }
+        }
+      }
+
+      requestAnimationFrame(jumpFrame);
     }
 
     function movePlayer(direction) {
-      if (gameOver) return;
+      if (gameOver || player.jumping) return;
 
       let laneIndex = Math.round((player.y + player.size / 2) / laneHeight) - 1;
-
       if (direction === "up") laneIndex--;
       if (direction === "down") {
         if (laneIndex >= lanes - 1) return;
@@ -187,22 +214,10 @@
       if (direction === "left") player.move(-40, 0);
       if (direction === "right") player.move(40, 0);
 
-      player.y = getBandCenterY(laneIndex);
-
-      const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / laneHeight);
-      if (currentRoute > maxRouteReached) {
-        score++;
-        maxRouteReached = currentRoute;
-      }
-
-      if (player.y <= 0) {
-        player.y = getBandCenterY(lanes - 1);
-        difficulty += 0.3;
-        baseSpeed += 0.1;
-        createCars();
-        maxRouteReached = 0;
-      }
+      const targetY = getBandCenterY(laneIndex);
+      animateJump(targetY, laneIndex);
     }
+
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "ArrowUp") movePlayer("up");
@@ -249,17 +264,11 @@
       const rows = Math.floor(safeZoneHeight / tileSize);
       const offsetX = (canvas.width - cols * tileSize) / 2;
       const offsetY = y + (safeZoneHeight - rows * tileSize);
-
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           const isWhite = (row + col) % 2 === 0;
           ctx.fillStyle = isWhite ? "#fff" : "#000";
-          ctx.fillRect(
-            offsetX + col * tileSize,
-            offsetY + row * tileSize,
-            tileSize,
-            tileSize
-          );
+          ctx.fillRect(offsetX + col * tileSize, offsetY + row * tileSize, tileSize, tileSize);
         }
       }
     }
@@ -291,15 +300,11 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       for (let i = 0; i < lanes - 1; i++) drawRoad(i * laneHeight);
       drawSafeZone(canvas.height - safeZoneHeight);
-
       for (const car of cars) drawCar(car);
-
       ctx.fillStyle = player.color;
       ctx.fillRect(player.x, player.y, player.size, player.size);
-
       ctx.fillStyle = "#fff";
       ctx.font = "18px monospace";
       ctx.fillText("Routes traversées : " + score, 10, 25);
