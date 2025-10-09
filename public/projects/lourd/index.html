@@ -219,39 +219,46 @@
         const file = `./medias/${fileName}`;
         const isVideo = file.endsWith(".mp4") || file.endsWith(".webm");
 
-        const el = document.createElement(isVideo ? "video" : "img");
-        el.dataset.src = file; 
-        el.className = "media";
-
+        // limite le nombre de vidéos
         if (isVideo && document.querySelectorAll("video.media").length >= MAX_VIDEOS) {
-            return; // ne pas ajouter plus de vidéos actives
+            return;
         }
 
+        const el = document.createElement(isVideo ? "video" : "img");
+        el.className = "media";
+
         if (isVideo) {
+            // ⚡ Chargement vidéo optimisé mais immédiat
+            el.src = file;
             el.autoplay = true;
             el.loop = true;
             el.preload = "metadata";
             el.muted = true;
-            el.playsInline = true; 
-            el.setAttribute("playsinline", ""); 
+            el.playsInline = true;
+            el.setAttribute("playsinline", "");
             el.setAttribute("webkit-playsinline", "");
+        } else {
+            // ⚡ Chargement image direct
+            el.src = file;
         }
 
+        // Quand c’est prêt, on le place
+        const handleReady = () => placeElement(el);
+        if (isVideo) el.onloadeddata = handleReady;
+        else el.onload = handleReady;
 
         container.appendChild(el);
-        el.onload = () => placeElement(el);
-        if (isVideo) el.onloadeddata = () => placeElement(el);
 
-        // supprime après 8s pour alléger mobile
+        // suppression automatique après 8s
         setTimeout(() => el.remove(), 8000);
 
         // évite surcharge
         if (container.children.length > MAX_ELEMENTS) {
             container.removeChild(container.firstChild);
         }
-    }
+        }
 
-    function placeElement(el) {
+        function placeElement(el) {
         const screenW = window.innerWidth;
         const screenH = window.innerHeight;
         const elW = el.offsetWidth || screenW * 0.25;
@@ -262,14 +269,10 @@
         const left = Math.random() * maxLeft;
         const top = Math.random() * maxTop;
 
-        if (el.tagName === "VIDEO" && !el.src) {
-            el.src = el.dataset.src;
-            el.load();
-        }
-
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
-    }
+        }
+
 
     // ajuste le spawnCount si on resize
     window.addEventListener("resize", () => {
