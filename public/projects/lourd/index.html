@@ -173,8 +173,9 @@
         booSound.play();
     });
 
-    let spawnCount = window.innerWidth < 768 ? 1 : 3; // moins d’éléments sur mobile
-    const MAX_ELEMENTS = window.innerWidth < 768 ? 40 : 140; // limite selon l’écran
+    let spawnCount = window.innerWidth < 768 ? 1 : 3;
+    const MAX_ELEMENTS = window.innerWidth < 768 ? 40 : 140; 
+    const MAX_VIDEOS = window.innerWidth < 768 ? 3 : 8;
 
     enterBtn.addEventListener("click", () => {
         // 🧩 Stoppe le son “boo” s’il joue encore
@@ -219,13 +220,17 @@
         const isVideo = file.endsWith(".mp4") || file.endsWith(".webm");
 
         const el = document.createElement(isVideo ? "video" : "img");
-        el.src = file;
+        el.dataset.src = file; 
         el.className = "media";
+
+        if (isVideo && document.querySelectorAll("video.media").length >= MAX_VIDEOS) {
+            return; // ne pas ajouter plus de vidéos actives
+        }
 
         if (isVideo) {
             el.autoplay = true;
             el.loop = true;
-            el.preload = "auto";
+            el.preload = "metadata";
             el.muted = true;
             el.playsInline = true; 
             el.setAttribute("playsinline", ""); 
@@ -256,6 +261,11 @@
         const maxTop = screenH - elH;
         const left = Math.random() * maxLeft;
         const top = Math.random() * maxTop;
+
+        if (el.tagName === "VIDEO" && !el.src) {
+            el.src = el.dataset.src;
+            el.load();
+        }
 
         el.style.left = `${left}px`;
         el.style.top = `${top}px`;
