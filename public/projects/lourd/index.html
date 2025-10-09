@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lourd — Inktober 2025</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      height: 100%;
+      font-family: "Inter", sans-serif;
+      color: white;
+      touch-action: none;
+    }
+
+    #intro {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      height: 100vh;
+      background-image: url('backgroundpc.png');
+      transition: opacity 1s;
+      text-align: center;
+      padding: 0 1em;
+    }
+
+    .win98 {
+    margin: auto;
+    font-family: MS Sans Serif;
+    width: 350px;
+    padding: 3px;
+    background: #c3c3c3;
+    color: #000;
+    border-top: 2px solid #c1c1be;
+    border-right: 2px solid #818181;
+    border-bottom: 2px solid #818181;
+    border-left: 2px solid #deddd9;
+    }
+
+    .title {
+    font-size: 16px;
+    padding: 2px;
+    color: #fff;
+    background: linear-gradient(
+        90deg,
+        rgba(17, 43, 111, 1) 0%,
+        rgba(94, 123, 177, 1) 35%,
+        rgba(161, 200, 241, 1) 100%
+    );
+    }
+
+    .msg {
+    padding: 5px;
+    font-size: 14px;
+    }
+
+    button {
+    padding: 2px 0;
+    width: 80px;
+    background: #c3c3c3;
+    border-top: 2px solid #fdffff;
+    border-right: 2px solid #818181;
+    border-bottom: 2px solid #818181;
+    border-left: 2px solid #fdffff;
+    }
+
+    button:hover {
+    background: #c3c3c3;
+    border-top: 2px solid #818181;
+    border-right: 2px solid #fdffff;
+    border-bottom: 2px solid #fdffff;
+    border-left: 2px solid #818181;
+    }
+
+    button:active {
+    background: #c3c3c3;
+    border: 2px solid #818181;
+    }
+
+    .close {
+    float: right;
+    margin-top: -1px;
+    width: 20px;
+    padding: 1px;
+    }
+
+    .btn-group {
+    margin: auto;
+    width: 50%;
+    }
+
+    #container {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      display: none;
+      touch-action: none;
+    }
+
+    .media {
+      position: absolute;
+      object-fit: cover;
+      opacity: 0;
+      animation: appear 0.4s ease forwards;
+      filter: brightness(1.2);
+      pointer-events: none;
+      transition: transform 0.2s ease;
+    }
+
+    @keyframes appear {
+      to { opacity: 1; transform: scale(1.05); }
+    }
+
+    /* ---- Responsive media sizes ---- */
+    @media (min-width: 1024px) {
+      .media { max-width: 25vw; max-height: 25vh; }
+    }
+
+    @media (max-width: 1023px) and (min-width: 768px) {
+      .media { max-width: 35vw; max-height: 35vh; }
+    }
+
+    @media (max-width: 767px) {
+      .media { max-width: 45vw; max-height: 45vh; }
+    }
+
+    @media (max-width: 480px) {
+        #intro { background-image: url('backgroundphone.png'); background-size: cover; }
+      .media { max-width: 55vw; max-height: 55vh; }
+    }
+  </style>
+</head>
+<body>
+  <div id="intro">
+    <div class="win98">
+    <p class="title">Message Box <button class="close">X</button></p>
+    <p class="msg">Voulez-vous rentrer dans l'expérience ?!</p>
+    <div class="btn-group">
+      <button id="cancel-btn">Annuler</button>
+      <button id="enter-btn">OUI</button>
+    </div>
+  </div>
+  </div>
+
+  <div id="container"></div>
+
+  <audio id="music" loop src="sonday9.mp3"></audio>
+  <audio id="boo-sound" src="boo.mp3"></audio>
+
+  <script type="module">
+    import mediaFiles from './mediaList.js';
+
+    const bpm = 149;
+    const beatInterval = 60 / bpm;
+    const container = document.getElementById("container");
+    const music = document.getElementById("music");
+    const intro = document.getElementById("intro");
+    const enterBtn = document.getElementById("enter-btn");
+    const cancelBtn = document.getElementById("cancel-btn");
+    const booSound = document.getElementById("boo-sound");
+
+    cancelBtn.addEventListener("click", () => {
+        booSound.currentTime = 0; // recommence au début à chaque clic
+        booSound.play();
+    });
+
+    let spawnCount = window.innerWidth < 768 ? 1 : 3; // moins d’éléments sur mobile
+    const MAX_ELEMENTS = window.innerWidth < 768 ? 40 : 140; // limite selon l’écran
+
+    enterBtn.addEventListener("click", () => {
+        // 🧩 Stoppe le son “boo” s’il joue encore
+        if (!booSound.paused) {
+        booSound.pause();
+        booSound.currentTime = 0;
+        }
+
+        intro.style.opacity = 0;
+        setTimeout(() => {
+        intro.style.display = "none";
+        container.style.display = "block";
+        startExperience();
+        }, 1000);
+    });
+
+    function startExperience() {
+        music.play();
+        setInterval(() => {
+        for (let i = 0; i < spawnCount; i++) spawnRandomMedia();
+        }, beatInterval * 1000);
+    }
+
+    // On garde ici la mémoire des 5 derniers médias affichés
+    let recentMedia = [];
+
+    function spawnRandomMedia() {
+        let fileName;
+
+        // Tire un média au hasard qui ne fait pas partie des 5 derniers
+        do {
+            fileName = mediaFiles[Math.floor(Math.random() * mediaFiles.length)];
+        } while (recentMedia.includes(fileName) && mediaFiles.length > 5);
+
+        // Ajoute ce fichier à la mémoire
+        recentMedia.push(fileName);
+        if (recentMedia.length > 5) {
+            recentMedia.shift(); // enlève le plus ancien
+        }
+
+        const file = `./medias/${fileName}`;
+        const isVideo = file.endsWith(".mp4") || file.endsWith(".webm");
+
+        const el = document.createElement(isVideo ? "video" : "img");
+        el.src = file;
+        el.className = "media";
+
+        if (isVideo) {
+            el.autoplay = true;
+            el.loop = true;
+            el.muted = true;
+        }
+
+        container.appendChild(el);
+        el.onload = () => placeElement(el);
+        if (isVideo) el.onloadeddata = () => placeElement(el);
+
+        // supprime après 8s pour alléger mobile
+        setTimeout(() => el.remove(), 8000);
+
+        // évite surcharge
+        if (container.children.length > MAX_ELEMENTS) {
+            container.removeChild(container.firstChild);
+        }
+    }
+
+    function placeElement(el) {
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+        const elW = el.offsetWidth || screenW * 0.25;
+        const elH = el.offsetHeight || screenH * 0.25;
+
+        const maxLeft = screenW - elW;
+        const maxTop = screenH - elH;
+        const left = Math.random() * maxLeft;
+        const top = Math.random() * maxTop;
+
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+    }
+
+    // ajuste le spawnCount si on resize
+    window.addEventListener("resize", () => {
+        spawnCount = window.innerWidth < 768 ? 1 : 3;
+    });
+    </script>
+
+</body>
+</html>
