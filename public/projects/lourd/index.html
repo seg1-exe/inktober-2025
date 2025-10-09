@@ -111,6 +111,11 @@
       transition: transform 0.2s ease;
     }
 
+    video.media {
+        pointer-events: none;
+    }
+
+
     @keyframes appear {
       to { opacity: 1; transform: scale(1.05); }
     }
@@ -220,8 +225,13 @@
         if (isVideo) {
             el.autoplay = true;
             el.loop = true;
+            el.preload = "auto";
             el.muted = true;
+            el.playsInline = true; 
+            el.setAttribute("playsinline", ""); 
+            el.setAttribute("webkit-playsinline", "");
         }
+
 
         container.appendChild(el);
         el.onload = () => placeElement(el);
