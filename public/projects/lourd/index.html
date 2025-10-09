@@ -157,128 +157,178 @@
   <audio id="boo-sound" src="boo.mp3"></audio>
 
   <script type="module">
-    import mediaFiles from './mediaList.js';
+import mediaFiles from './mediaList.js';
 
-    const bpm = 149;
-    const beatInterval = 60 / bpm;
-    const container = document.getElementById("container");
-    const music = document.getElementById("music");
-    const intro = document.getElementById("intro");
-    const enterBtn = document.getElementById("enter-btn");
-    const cancelBtn = document.getElementById("cancel-btn");
-    const booSound = document.getElementById("boo-sound");
+const bpm = 149;
+const beatInterval = 60 / bpm;
+const container = document.getElementById("container");
+const music = document.getElementById("music");
+const intro = document.getElementById("intro");
+const enterBtn = document.getElementById("enter-btn");
+const cancelBtn = document.getElementById("cancel-btn");
+const booSound = document.getElementById("boo-sound");
 
-    cancelBtn.addEventListener("click", () => {
-        booSound.currentTime = 0; // recommence au début à chaque clic
-        booSound.play();
-    });
+cancelBtn.addEventListener("click", () => {
+  booSound.currentTime = 0;
+  booSound.play();
+});
 
-    let spawnCount = window.innerWidth < 768 ? 1 : 3;
-    const MAX_ELEMENTS = window.innerWidth < 768 ? 40 : 140; 
-    const MAX_VIDEOS = window.innerWidth < 768 ? 3 : 8;
+let spawnCount = window.innerWidth < 768 ? 1 : 3;
+const MAX_ELEMENTS = window.innerWidth < 768 ? 40 : 140;
+const MAX_VIDEOS = window.innerWidth < 768 ? 3 : 8;
 
-    enterBtn.addEventListener("click", () => {
-        // 🧩 Stoppe le son “boo” s’il joue encore
-        if (!booSound.paused) {
-        booSound.pause();
-        booSound.currentTime = 0;
-        }
+// 🧩 Séparer les images et vidéos
+const imageFiles = mediaFiles.filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f));
+const videoFiles = mediaFiles.filter(f => /\.(mp4|webm|mov)$/i.test(f));
 
-        intro.style.opacity = 0;
-        setTimeout(() => {
-        intro.style.display = "none";
-        container.style.display = "block";
-        startExperience();
-        }, 1000);
-    });
+let videoCache = [];
+let videosReady = false;
 
-    function startExperience() {
-        music.play();
-        setInterval(() => {
-        for (let i = 0; i < spawnCount; i++) spawnRandomMedia();
-        }, beatInterval * 1000);
+// Préchargement des vidéos
+function preloadVideos() {
+  return Promise.all(
+    videoFiles.map(src => {
+      return new Promise(resolve => {
+        const v = document.createElement("video");
+        v.src = `./medias/${src}`;
+        v.preload = "auto";
+        v.muted = true;
+        v.playsInline = true;
+        v.setAttribute("playsinline", "");
+        v.setAttribute("webkit-playsinline", "");
+        v.oncanplaythrough = () => {
+          videoCache.push(v);
+          resolve(v);
+        };
+        v.onerror = resolve; // ne bloque pas si une vidéo échoue
+      });
+    })
+  ).then(() => {
+    console.log(`🎥 ${videoCache.length}/${videoFiles.length} vidéos prêtes`);
+    videosReady = true;
+  });
+}
+
+enterBtn.addEventListener("click", async () => {
+  if (!booSound.paused) {
+    booSound.pause();
+    booSound.currentTime = 0;
+  }
+
+  intro.style.opacity = 0;
+  setTimeout(() => {
+    intro.style.display = "none";
+    container.style.display = "block";
+  }, 1000);
+
+  // 🌀 Lancer la musique et le flux d’images immédiatement
+  music.play();
+  startImagePhase();
+
+  // 🚀 En parallèle, on charge les vidéos
+  await preloadVideos();
+
+  // 🎬 Dès que la moitié des vidéos sont prêtes, on ajoute les vidéos au flux
+  videosReady = true;
+  console.log("✅ Les vidéos sont prêtes à apparaître !");
+});
+
+function startImagePhase() {
+  let phase = "images";
+
+  setInterval(() => {
+    for (let i = 0; i < spawnCount; i++) {
+      // Si les vidéos sont prêtes, on mélange images + vidéos
+      if (videosReady) {
+        spawnRandomMedia();
+      } else {
+        spawnImageOnly();
+      }
     }
+  }, beatInterval * 1000);
+}
 
-    // On garde ici la mémoire des 5 derniers médias affichés
-    let recentMedia = [];
+// ----------------------------------
 
-    function spawnRandomMedia() {
-        let fileName;
+let recentMedia = [];
 
-        // Tire un média au hasard qui ne fait pas partie des 5 derniers
-        do {
-            fileName = mediaFiles[Math.floor(Math.random() * mediaFiles.length)];
-        } while (recentMedia.includes(fileName) && mediaFiles.length > 5);
+function spawnImageOnly() {
+  if (imageFiles.length === 0) return;
+  let fileName;
+  do {
+    fileName = imageFiles[Math.floor(Math.random() * imageFiles.length)];
+  } while (recentMedia.includes(fileName) && imageFiles.length > 5);
 
-        // Ajoute ce fichier à la mémoire
-        recentMedia.push(fileName);
-        if (recentMedia.length > 5) {
-            recentMedia.shift(); // enlève le plus ancien
-        }
+  recentMedia.push(fileName);
+  if (recentMedia.length > 5) recentMedia.shift();
 
-        const file = `./medias/${fileName}`;
-        const isVideo = file.endsWith(".mp4") || file.endsWith(".webm");
+  const el = document.createElement("img");
+  el.src = `./medias/${fileName}`;
+  el.className = "media";
+  el.onload = () => placeElement(el);
+  container.appendChild(el);
 
-        // limite le nombre de vidéos
-        if (isVideo && document.querySelectorAll("video.media").length >= MAX_VIDEOS) {
-            return;
-        }
+  setTimeout(() => el.remove(), 8000);
+  if (container.children.length > MAX_ELEMENTS)
+    container.removeChild(container.firstChild);
+}
 
-        const el = document.createElement(isVideo ? "video" : "img");
-        el.className = "media";
+function spawnRandomMedia() {
+  let isVideo = Math.random() < 0.4 && videoCache.length > 0; // 40% de vidéos quand prêtes
+  const pool = isVideo ? videoFiles : imageFiles;
+  let fileName;
+  do {
+    fileName = pool[Math.floor(Math.random() * pool.length)];
+  } while (recentMedia.includes(fileName) && pool.length > 5);
 
-        if (isVideo) {
-            // ⚡ Chargement vidéo optimisé mais immédiat
-            el.src = file;
-            el.autoplay = true;
-            el.loop = true;
-            el.preload = "metadata";
-            el.muted = true;
-            el.playsInline = true;
-            el.setAttribute("playsinline", "");
-            el.setAttribute("webkit-playsinline", "");
-        } else {
-            // ⚡ Chargement image direct
-            el.src = file;
-        }
+  recentMedia.push(fileName);
+  if (recentMedia.length > 5) recentMedia.shift();
 
-        // Quand c’est prêt, on le place
-        const handleReady = () => placeElement(el);
-        if (isVideo) el.onloadeddata = handleReady;
-        else el.onload = handleReady;
+  const el = document.createElement(isVideo ? "video" : "img");
+  el.className = "media";
+  const file = `./medias/${fileName}`;
 
-        container.appendChild(el);
+  if (isVideo) {
+    const cachedVideo = videoCache.find(v => v.src.endsWith(fileName));
+    if (!cachedVideo) return;
+    el.src = cachedVideo.src;
+    el.loop = true;
+    el.muted = true;
+    el.autoplay = true;
+    el.playsInline = true;
+    el.setAttribute("playsinline", "");
+    el.setAttribute("webkit-playsinline", "");
+    el.preload = "metadata";
+  } else {
+    el.src = file;
+  }
 
-        // suppression automatique après 8s
-        setTimeout(() => el.remove(), 8000);
+  const handleReady = () => placeElement(el);
+  if (isVideo) el.onloadeddata = handleReady;
+  else el.onload = handleReady;
 
-        // évite surcharge
-        if (container.children.length > MAX_ELEMENTS) {
-            container.removeChild(container.firstChild);
-        }
-        }
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+  if (container.children.length > MAX_ELEMENTS)
+    container.removeChild(container.firstChild);
+}
 
-        function placeElement(el) {
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
-        const elW = el.offsetWidth || screenW * 0.25;
-        const elH = el.offsetHeight || screenH * 0.25;
+function placeElement(el) {
+  const screenW = window.innerWidth;
+  const screenH = window.innerHeight;
+  const elW = el.offsetWidth || screenW * 0.25;
+  const elH = el.offsetHeight || screenH * 0.25;
+  const maxLeft = screenW - elW;
+  const maxTop = screenH - elH;
+  el.style.left = `${Math.random() * maxLeft}px`;
+  el.style.top = `${Math.random() * maxTop}px`;
+}
 
-        const maxLeft = screenW - elW;
-        const maxTop = screenH - elH;
-        const left = Math.random() * maxLeft;
-        const top = Math.random() * maxTop;
+window.addEventListener("resize", () => {
+  spawnCount = window.innerWidth < 768 ? 1 : 3;
+});
+</script>
 
-        el.style.left = `${left}px`;
-        el.style.top = `${top}px`;
-        }
-
-
-    // ajuste le spawnCount si on resize
-    window.addEventListener("resize", () => {
-        spawnCount = window.innerWidth < 768 ? 1 : 3;
-    });
-    </script>
 
 </body>
 </html>
