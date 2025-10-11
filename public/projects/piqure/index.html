@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Inktober 2025 - Jour 11</title>
+  <title>Piqûre – Inktober 2025</title>
   <style>
     * {
       box-sizing: border-box;
@@ -42,19 +42,18 @@
       overflow: hidden;
     }
 
+    /* 🦟 Moustiques */
     .mosquito {
       position: absolute;
-      width: 150px;
-      height: 150px;
       background: url('/projects/piqure/moustique.webp') center/contain no-repeat;
-      transition: all 0.6s ease;
+      transition: all 0.5s ease;
       z-index: 2;
     }
 
     @media (max-width: 768px) {
       .mosquito {
-        width: 100px;
-        height: 100px;
+        width: 90px !important;
+        height: 90px !important;
       }
     }
 
@@ -62,6 +61,7 @@
       transform: scale(0.9);
     }
 
+    /* 💥 Splash overlay */
     .splash {
       position: absolute;
       width: 200px;
@@ -110,10 +110,6 @@
     button:hover {
       background: #ff1744;
     }
-
-    h1, h2, p {
-      margin: 10px 0;
-    }
   </style>
 </head>
 <body>
@@ -125,9 +121,8 @@
     <div id="game-area"></div>
 
     <div id="start-screen">
-      <h1>Piqûre Challenge</h1>
-      <p>Écrase les moustiques avant qu’ils ne s’échappent !</p>
-      <p>Tu as 60 secondes.</p>
+      <h1>🦟 Piqûre Challenge 🕹️</h1>
+      <p>Survis à l’invasion de moustiques pendant 1 minute !</p>
       <button id="start">Commencer</button>
     </div>
 
@@ -153,8 +148,12 @@
     let gameInterval;
     let mosquitoInterval;
     let difficultyInterval;
+
+    // difficulté dynamique
     let spawnRate = 1000;
-    let lifeDuration = 5000;
+    let lifeDuration = 4000;
+    let minSpeed = 800;
+    let maxSpeed = 2000;
 
     const onPress = (element, callback) => {
       element.addEventListener('click', callback);
@@ -167,7 +166,9 @@
       timerEl.textContent = timeLeft;
       gameArea.innerHTML = '';
       spawnRate = 1000;
-      lifeDuration = 5000;
+      lifeDuration = 4000;
+      minSpeed = 800;
+      maxSpeed = 2000;
 
       startScreen.classList.add('hidden');
       endScreen.classList.add('hidden');
@@ -175,7 +176,7 @@
 
       gameInterval = setInterval(updateTimer, 1000);
       mosquitoInterval = setInterval(spawnMosquito, spawnRate);
-      difficultyInterval = setInterval(increaseDifficulty, 10000);
+      difficultyInterval = setInterval(increaseDifficulty, 7000);
     }
 
     function updateTimer() {
@@ -200,13 +201,21 @@
         clearInterval(mosquitoInterval);
         mosquitoInterval = setInterval(spawnMosquito, spawnRate);
       }
-      if (lifeDuration > 2000) lifeDuration -= 500;
+      if (lifeDuration > 1500) lifeDuration -= 300;
+      if (minSpeed > 300) minSpeed -= 100;
+      if (maxSpeed > 800) maxSpeed -= 200;
     }
 
+    // apparition + difficulté aléatoire
     function spawnMosquito() {
       const mosquito = document.createElement('div');
       mosquito.classList.add('mosquito');
       mosquito.dataset.alive = "true";
+
+      // taille et vitesse aléatoire
+      const size = Math.random() < 0.2 ? 80 : 130; // 20% petits, plus rapides
+      mosquito.style.width = `${size}px`;
+      mosquito.style.height = `${size}px`;
 
       const side = Math.floor(Math.random() * 4);
       let startX, startY;
@@ -222,9 +231,8 @@
       mosquito.style.top = `${startY}px`;
       gameArea.appendChild(mosquito);
 
-      // entrée
-      const targetX = Math.random() * (window.innerWidth - 150);
-      const targetY = Math.random() * (window.innerHeight - 150);
+      const targetX = Math.random() * (window.innerWidth - size);
+      const targetY = Math.random() * (window.innerHeight - size);
       setTimeout(() => {
         mosquito.style.left = `${targetX}px`;
         mosquito.style.top = `${targetY}px`;
@@ -239,7 +247,6 @@
         }
       }, lifeDuration);
 
-      // clic ou tap = mort
       const kill = (e) => {
         e.preventDefault();
         if (mosquito.dataset.alive === "false") return;
@@ -255,21 +262,32 @@
       mosquito.addEventListener('touchstart', kill, { passive: true });
     }
 
+    // déplacement dynamique
     function moveMosquito(mosquito) {
       const move = () => {
         if (!document.body.contains(mosquito)) return;
         if (mosquito.dataset.alive === "false") return;
-        const x = Math.random() * (window.innerWidth - 150);
-        const y = Math.random() * (window.innerHeight - 150);
-        const speed = Math.random() * 2000 + 1000;
+
+        let x = Math.random() * (window.innerWidth - 150);
+        let y = Math.random() * (window.innerHeight - 150);
+
+        // 15% de chances de charger vers le curseur
+        if (Math.random() < 0.15 && window.lastPointerX && window.lastPointerY) {
+          x = window.lastPointerX + (Math.random() * 100 - 50);
+          y = window.lastPointerY + (Math.random() * 100 - 50);
+        }
+
+        const speed = Math.random() * (maxSpeed - minSpeed) + minSpeed;
         mosquito.style.transition = `all ${speed}ms ease-in-out`;
         mosquito.style.left = `${x}px`;
         mosquito.style.top = `${y}px`;
+
         setTimeout(move, speed);
       };
       move();
     }
 
+    // moustiques volent hors de l’écran
     function flyOut(mosquito) {
       if (!gameArea.contains(mosquito)) return;
       const side = Math.floor(Math.random() * 4);
@@ -282,13 +300,10 @@
         case 3: exitX = Math.random() * window.innerWidth; exitY = window.innerHeight + 200; break;
       }
 
-      mosquito.style.transition = 'all 1.5s ease-in';
+      mosquito.style.transition = 'all 1s ease-in';
       mosquito.style.left = `${exitX}px`;
       mosquito.style.top = `${exitY}px`;
-
-      setTimeout(() => {
-        if (gameArea.contains(mosquito)) mosquito.remove();
-      }, 1600);
+      setTimeout(() => mosquito.remove(), 1000);
     }
 
     function showSplash(x, y) {
@@ -299,6 +314,18 @@
       gameArea.appendChild(splash);
       setTimeout(() => splash.remove(), 600);
     }
+
+    window.addEventListener('mousemove', (e) => {
+      window.lastPointerX = e.clientX;
+      window.lastPointerY = e.clientY;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches[0]) {
+        window.lastPointerX = e.touches[0].clientX;
+        window.lastPointerY = e.touches[0].clientY;
+      }
+    });
 
     onPress(startBtn, startGame);
     onPress(restartBtn, startGame);
