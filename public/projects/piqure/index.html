@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Inktober 2025 - Jour 11</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle, #e0f7fa, #b2ebf2);
+      font-family: 'Poppins', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 1.5em;
+      z-index: 10;
+      color: #333;
+    }
+
+    #game-area {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mosquito {
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      background: url('/projects/piqure/moustique.webp') center/contain no-repeat;
+      transition: all 0.6s ease;
+      z-index: 2;
+    }
+
+    @media (max-width: 768px) {
+      .mosquito {
+        width: 100px;
+        height: 100px;
+      }
+    }
+
+    .mosquito:active {
+      transform: scale(0.9);
+    }
+
+    .splash {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      background: url('/projects/piqure/splat.webp') center/contain no-repeat;
+      pointer-events: none;
+      z-index: 3;
+      animation: splashFade 0.6s ease forwards;
+    }
+
+    @keyframes splashFade {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.5); }
+    }
+
+    #start-screen,
+    #end-screen {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      text-align: center;
+      z-index: 5;
+      padding: 20px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    button {
+      background: #ff5252;
+      border: none;
+      color: white;
+      padding: 12px 24px;
+      font-size: 1.2em;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      background: #ff1744;
+    }
+
+    h1, h2, p {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="scoreboard" class="hidden">
+      <span>Temps : <span id="timer">60</span>s</span>
+    </div>
+
+    <div id="game-area"></div>
+
+    <div id="start-screen">
+      <h1>Piqûre Challenge</h1>
+      <p>Écrase les moustiques avant qu’ils ne s’échappent !</p>
+      <p>Tu as 60 secondes.</p>
+      <button id="start">Commencer</button>
+    </div>
+
+    <div id="end-screen" class="hidden">
+      <h2>⏰ Temps écoulé !</h2>
+      <p>Ton score final : <span id="final-score">0</span></p>
+      <button id="restart">Rejouer</button>
+    </div>
+  </div>
+
+  <script>
+    const gameArea = document.getElementById('game-area');
+    const timerEl = document.getElementById('timer');
+    const scoreboard = document.getElementById('scoreboard');
+    const startScreen = document.getElementById('start-screen');
+    const endScreen = document.getElementById('end-screen');
+    const finalScoreEl = document.getElementById('final-score');
+    const startBtn = document.getElementById('start');
+    const restartBtn = document.getElementById('restart');
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval;
+    let mosquitoInterval;
+    let difficultyInterval;
+    let spawnRate = 1000;
+    let lifeDuration = 5000;
+
+    const onPress = (element, callback) => {
+      element.addEventListener('click', callback);
+      element.addEventListener('touchstart', callback, { passive: true });
+    };
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      timerEl.textContent = timeLeft;
+      gameArea.innerHTML = '';
+      spawnRate = 1000;
+      lifeDuration = 5000;
+
+      startScreen.classList.add('hidden');
+      endScreen.classList.add('hidden');
+      scoreboard.classList.remove('hidden');
+
+      gameInterval = setInterval(updateTimer, 1000);
+      mosquitoInterval = setInterval(spawnMosquito, spawnRate);
+      difficultyInterval = setInterval(increaseDifficulty, 10000);
+    }
+
+    function updateTimer() {
+      timeLeft--;
+      timerEl.textContent = timeLeft;
+      if (timeLeft <= 0) endGame();
+    }
+
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(mosquitoInterval);
+      clearInterval(difficultyInterval);
+      finalScoreEl.textContent = score;
+      endScreen.classList.remove('hidden');
+      scoreboard.classList.add('hidden');
+      gameArea.innerHTML = '';
+    }
+
+    function increaseDifficulty() {
+      if (spawnRate > 400) {
+        spawnRate -= 100;
+        clearInterval(mosquitoInterval);
+        mosquitoInterval = setInterval(spawnMosquito, spawnRate);
+      }
+      if (lifeDuration > 2000) lifeDuration -= 500;
+    }
+
+    function spawnMosquito() {
+      const mosquito = document.createElement('div');
+      mosquito.classList.add('mosquito');
+      mosquito.dataset.alive = "true";
+
+      const side = Math.floor(Math.random() * 4);
+      let startX, startY;
+
+      switch (side) {
+        case 0: startX = -150; startY = Math.random() * window.innerHeight; break;
+        case 1: startX = window.innerWidth + 150; startY = Math.random() * window.innerHeight; break;
+        case 2: startX = Math.random() * window.innerWidth; startY = -150; break;
+        case 3: startX = Math.random() * window.innerWidth; startY = window.innerHeight + 150; break;
+      }
+
+      mosquito.style.left = `${startX}px`;
+      mosquito.style.top = `${startY}px`;
+      gameArea.appendChild(mosquito);
+
+      // entrée
+      const targetX = Math.random() * (window.innerWidth - 150);
+      const targetY = Math.random() * (window.innerHeight - 150);
+      setTimeout(() => {
+        mosquito.style.left = `${targetX}px`;
+        mosquito.style.top = `${targetY}px`;
+      }, 50);
+
+      moveMosquito(mosquito);
+
+      const lifeTimer = setTimeout(() => {
+        if (mosquito.dataset.alive === "true") {
+          mosquito.dataset.alive = "false";
+          flyOut(mosquito);
+        }
+      }, lifeDuration);
+
+      // clic ou tap = mort
+      const kill = (e) => {
+        e.preventDefault();
+        if (mosquito.dataset.alive === "false") return;
+        mosquito.dataset.alive = "false";
+        clearTimeout(lifeTimer);
+        const touch = e.touches ? e.touches[0] : e;
+        showSplash(touch.clientX, touch.clientY);
+        mosquito.remove();
+        score++;
+      };
+
+      mosquito.addEventListener('click', kill);
+      mosquito.addEventListener('touchstart', kill, { passive: true });
+    }
+
+    function moveMosquito(mosquito) {
+      const move = () => {
+        if (!document.body.contains(mosquito)) return;
+        if (mosquito.dataset.alive === "false") return;
+        const x = Math.random() * (window.innerWidth - 150);
+        const y = Math.random() * (window.innerHeight - 150);
+        const speed = Math.random() * 2000 + 1000;
+        mosquito.style.transition = `all ${speed}ms ease-in-out`;
+        mosquito.style.left = `${x}px`;
+        mosquito.style.top = `${y}px`;
+        setTimeout(move, speed);
+      };
+      move();
+    }
+
+    function flyOut(mosquito) {
+      if (!gameArea.contains(mosquito)) return;
+      const side = Math.floor(Math.random() * 4);
+      let exitX, exitY;
+
+      switch (side) {
+        case 0: exitX = -200; exitY = Math.random() * window.innerHeight; break;
+        case 1: exitX = window.innerWidth + 200; exitY = Math.random() * window.innerHeight; break;
+        case 2: exitX = Math.random() * window.innerWidth; exitY = -200; break;
+        case 3: exitX = Math.random() * window.innerWidth; exitY = window.innerHeight + 200; break;
+      }
+
+      mosquito.style.transition = 'all 1.5s ease-in';
+      mosquito.style.left = `${exitX}px`;
+      mosquito.style.top = `${exitY}px`;
+
+      setTimeout(() => {
+        if (gameArea.contains(mosquito)) mosquito.remove();
+      }, 1600);
+    }
+
+    function showSplash(x, y) {
+      const splash = document.createElement('div');
+      splash.classList.add('splash');
+      splash.style.left = `${x - 100}px`;
+      splash.style.top = `${y - 100}px`;
+      gameArea.appendChild(splash);
+      setTimeout(() => splash.remove(), 600);
+    }
+
+    onPress(startBtn, startGame);
+    onPress(restartBtn, startGame);
+  </script>
+</body>
+</html>
