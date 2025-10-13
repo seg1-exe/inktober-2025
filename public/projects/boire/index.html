@@ -70,15 +70,18 @@
 
   let width, height;
   let beta = 0, gamma = 0;
-  let baseBeta = 0, baseGamma = 0;
-  let beerLevel = 0.9;
+  let baseBeta = null, baseGamma = null;
+  let beerLevel = 0.97; // ✅ verre vraiment plein
   let empty = false;
   let time = 0;
+  let animationStarted = false;
 
-  const DRAIN_RATE = 0.18; // vitesse de vidage
-  const THRESH = -5;       // incline vers soi pour boire
-  const MIN_LEVEL = 0.05;  // reste toujours un fond
-  const FOAM_HEIGHT = 20;  // hauteur de mousse
+  const DRAIN_RATE = 0.18;
+  const THRESH = 10; // incline vers soi = beta > +10°
+  const MIN_LEVEL = 0.05;
+  const FOAM_HEIGHT = 18; // épaisseur mousse
+  const AMPLITUDE = 8;
+  const WAVELENGTH = 80;
 
   function resize() {
     width = canvas.width = window.innerWidth * window.devicePixelRatio;
@@ -93,38 +96,38 @@
     ctx.clearRect(0, 0, width, height);
 
     const midY = height * beerLevel;
-    const tilt = gamma * 0.02; // inclinaison visuelle (roulis)
-    const amplitude = 8; // amplitude de vague
-    const waveLength = 80; // largeur de vague
+    const tilt = gamma * 0.02;
 
-    // Couleur bière
+    // === Surface du liquide ===
+    const wavePoints = [];
+    for (let x = 0; x <= width; x += 6) {
+      const angle = (x / WAVELENGTH) + time * 2;
+      const y = midY + Math.sin(angle) * AMPLITUDE + x * tilt;
+      wavePoints.push({ x, y });
+    }
+
+    // === Dégradé bière ===
     const gradient = ctx.createLinearGradient(0, midY, 0, height);
     gradient.addColorStop(0, '#f5a623');
     gradient.addColorStop(1, '#c67c00');
 
     ctx.beginPath();
-    // Surface de la bière avec vagues inclinées
-    for (let x = 0; x <= width; x += 10) {
-      const angle = (x / waveLength) + time * 2;
-      const y = midY + Math.sin(angle) * amplitude + x * tilt;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
+    ctx.moveTo(0, height);
+    for (const p of wavePoints) ctx.lineTo(p.x, p.y);
     ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
     ctx.closePath();
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // Mousse blanche
+    // === Mousse (suit les mêmes vagues) ===
     ctx.beginPath();
-    for (let x = 0; x <= width; x += 10) {
-      const angle = (x / waveLength) + time * 2.5;
-      const y = midY + Math.sin(angle) * (amplitude * 0.6) - FOAM_HEIGHT;
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    for (let i = 0; i < wavePoints.length; i++) {
+      const p = wavePoints[i];
+      const foamY = p.y - FOAM_HEIGHT;
+      if (i === 0) ctx.moveTo(p.x, foamY);
+      else ctx.lineTo(p.x, foamY);
     }
-    ctx.lineWidth = 12;
+    ctx.lineWidth = 14;
     ctx.strokeStyle = '#fff';
     ctx.shadowColor = 'rgba(255,255,255,0.6)';
     ctx.shadowBlur = 6;
@@ -132,20 +135,22 @@
     ctx.shadowBlur = 0;
   }
 
-  function loop(dt) {
+  function loop() {
     time += 0.016;
 
-    // Vidage si incliné
-    if (beta - baseBeta < THRESH && !empty && beerLevel > MIN_LEVEL) {
-      beerLevel -= DRAIN_RATE * 0.016;
-      statusEl.textContent = '🍺 Glou glou…';
-      if (beerLevel <= MIN_LEVEL) {
-        beerLevel = MIN_LEVEL;
-        empty = true;
-        statusEl.textContent = 'Secoue pour remplir ton verre 🍻';
+    if (baseBeta !== null) {
+      // ✅ vide quand on incline vers soi
+      if (beta - baseBeta > THRESH && !empty && beerLevel > MIN_LEVEL) {
+        beerLevel -= DRAIN_RATE * 0.016;
+        statusEl.textContent = '🍺 Glou glou…';
+        if (beerLevel <= MIN_LEVEL) {
+          beerLevel = MIN_LEVEL;
+          empty = true;
+          statusEl.textContent = 'Secoue pour remplir ton verre 🍻';
+        }
+      } else if (!empty) {
+        statusEl.textContent = '';
       }
-    } else if (!empty) {
-      statusEl.textContent = '';
     }
 
     drawBeer();
@@ -157,7 +162,7 @@
     const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
     const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
     if (shake > 40) {
-      beerLevel = 0.9;
+      beerLevel = 0.97; // ✅ re-rempli à ras bord
       empty = false;
       statusEl.textContent = '';
     }
@@ -183,15 +188,22 @@
     window.addEventListener('deviceorientation', (e) => {
       beta = e.beta || 0;
       gamma = e.gamma || 0;
-      if (baseBeta === 0 && baseGamma === 0) {
+      if (baseBeta === null && baseGamma === null) {
         baseBeta = beta;
         baseGamma = gamma;
       }
     });
 
     window.addEventListener('devicemotion', onShake);
-    requestAnimationFrame(loop);
+
+    if (!animationStarted) {
+      animationStarted = true;
+      requestAnimationFrame(loop);
+    }
   }
+
+  // ✅ verre plein dès l’ouverture
+  drawBeer();
 
   startBtn.addEventListener('click', start);
 })();
