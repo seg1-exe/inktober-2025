@@ -6,50 +6,46 @@
 <title>Beer Simulator 🍺</title>
 <style>
   html, body {
-    height: 100%;
     margin: 0;
-    background: radial-gradient(circle at center, #f5deb3, #e0b95d);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    padding: 0;
+    height: 100%;
     overflow: hidden;
+    background: radial-gradient(circle at center, #f5deb3, #e0b95d);
     font-family: system-ui, sans-serif;
   }
 
   .glass {
     position: relative;
-    width: 250px;
-    height: 500px;
-    border-radius: 20px;
-    border: 4px solid rgba(255,255,255,0.6);
-    background: rgba(255,255,255,0.15);
-    box-shadow: 0 0 30px rgba(0,0,0,0.2);
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
-    backdrop-filter: blur(6px);
+    transform-origin: center center;
   }
 
   .beer {
     position: absolute;
     bottom: 0;
-    width: 100%;
+    width: 200vw; /* plus large que l'écran pour simuler le dévers */
+    left: -50vw;
     height: 90%;
-    background: linear-gradient(#f5a623, #c67c00);
-    transform-origin: bottom center;
-    transition: transform 0.1s linear;
+    background: linear-gradient(to top, #c67c00, #f5a623);
+    transform-origin: center center;
+    transition: height 0.1s linear;
   }
 
   .foam {
     position: absolute;
-    top: -25px;
+    top: -40px;
+    left: 0;
     width: 100%;
-    height: 35px;
+    height: 60px;
     background: radial-gradient(circle at 50% 50%, #fff 40%, #f7f3e9 100%);
-    border-radius: 50%;
-    animation: foamMove 3s infinite ease-in-out;
     opacity: 0.9;
+    border-radius: 50%;
+    animation: foam 3s infinite ease-in-out;
   }
 
-  @keyframes foamMove {
+  @keyframes foam {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(3px); }
   }
@@ -57,6 +53,8 @@
   #start {
     position: absolute;
     bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
     background: #fff8;
     border: none;
     border-radius: 12px;
@@ -65,21 +63,16 @@
     font-weight: 600;
     backdrop-filter: blur(4px);
     cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  #start:hover {
-    background: #fff;
   }
 
   #message {
     position: absolute;
     bottom: 10px;
-    text-align: center;
     width: 100%;
+    text-align: center;
     color: #fff;
-    font-size: 0.9rem;
     text-shadow: 0 0 5px rgba(0,0,0,0.3);
+    font-size: 1rem;
   }
 </style>
 </head>
@@ -94,11 +87,12 @@
 </div>
 
 <script>
+  const glass = document.querySelector(".glass");
   const beer = document.querySelector(".beer");
   const startBtn = document.getElementById("start");
   const message = document.getElementById("message");
+
   let beerHeight = 90;
-  let drinking = false;
 
   async function startMotion() {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -113,33 +107,38 @@
     message.textContent = "Santé ! 🍻";
 
     window.addEventListener("deviceorientation", handleTilt);
+    window.addEventListener("devicemotion", handleShake);
   }
 
   function handleTilt(event) {
     const beta = event.beta || 0;   // avant/arrière
     const gamma = event.gamma || 0; // gauche/droite
 
-    // rotation visuelle
-    beer.style.transform = `rotate(${gamma * -0.5}deg) scaleY(${beerHeight / 90})`;
+    // le "verre" s’incline
+    glass.style.transform = `rotateX(${beta * 0.2}deg) rotateY(${gamma * 0.3}deg)`;
 
-    // si on incline fortement => boire
-    if (Math.abs(beta) > 60 && beerHeight > 0) {
+    // le liquide reste horizontal (inverse du gamma)
+    beer.style.transform = `rotate(${-gamma * 0.5}deg)`;
+
+    // si on incline fortement vers soi => boire
+    if (beta > 60 && beerHeight > 0) {
       beerHeight -= 0.3;
       beer.style.height = beerHeight + "%";
-    } else if (Math.abs(beta) < 10 && beerHeight <= 0) {
-      message.textContent = "🍻 C'était bon ! Secoue pour remplir à nouveau.";
+    }
+
+    if (beerHeight <= 0) {
+      message.textContent = "🍻 Verre vide ! Secoue pour remplir à nouveau.";
     }
   }
 
-  // Re-remplir si on secoue
-  window.addEventListener("devicemotion", (e) => {
+  function handleShake(e) {
     const accel = Math.abs(e.acceleration.x) + Math.abs(e.acceleration.y) + Math.abs(e.acceleration.z);
     if (accel > 40 && beerHeight < 90) {
       beerHeight = 90;
       beer.style.height = beerHeight + "%";
       message.textContent = "Verre rempli ! 🍺";
     }
-  });
+  }
 
   startBtn.addEventListener("click", startMotion);
 </script>
