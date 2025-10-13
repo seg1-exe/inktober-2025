@@ -83,7 +83,7 @@
 
   // Paramètres
   const DRAIN_RATE = 0.18;
-  const THRESH = -10;       // incline vers soi = beta > +10°
+  const THRESH = 10;       // incline vers soi = beta > +10°
   const MIN_LEVEL = 0.05;  // fond résiduel
   const FOAM_HEIGHT = 18;
   const AMPLITUDE = 8;
@@ -160,7 +160,7 @@
 
     // Vidage quand on incline vers soi (après calibration)
     if (baseBeta !== null) {
-      if ( (beta - baseBeta) > THRESH && !empty && beerLevel > MIN_LEVEL ) {
+      if ((beta - baseBeta) <= -THRESH && !empty && beerLevel > MIN_LEVEL) {
         beerLevel -= DRAIN_RATE * 0.016;
         if (beerLevel <= MIN_LEVEL) {
           beerLevel = MIN_LEVEL;
