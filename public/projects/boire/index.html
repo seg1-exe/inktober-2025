@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Beer Simulator 🍺</title>
 <style>
   html, body {
@@ -14,22 +14,29 @@
     font-family: system-ui, sans-serif;
   }
 
+  /* Le verre */
   .glass {
     position: fixed;
-    inset: 0;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
     transform-origin: center center;
     will-change: transform;
+    z-index: 1; /* important : derrière l’UI */
   }
 
+  /* Le liquide */
   .beer {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200vw;
+    position: relative;
+    width: 200vw; /* plus large pour simuler le débordement */
     height: 90%;
     background: linear-gradient(to top, #c67c00, #f5a623);
-    transform-origin: center center;
+    transform-origin: center bottom;
+    will-change: transform, height;
   }
 
   .foam {
@@ -49,73 +56,83 @@
     50% { transform: translateY(3px); }
   }
 
+  /* UI fixée à l'écran */
+  #ui {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    z-index: 10; /* au-dessus du verre */
+    pointer-events: none;
+  }
+
   #start, #invert {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    pointer-events: all;
     background: #fff8;
     border: none;
     border-radius: 12px;
-    padding: 12px 20px;
+    padding: 10px 18px;
     font-size: 1rem;
     font-weight: 600;
     backdrop-filter: blur(4px);
+    margin-bottom: 10px;
     cursor: pointer;
   }
 
-  #start { bottom: 70px; }
-  #invert { bottom: 30px; }
-
-  #message {
-    position: absolute;
-    bottom: 10px;
-    width: 100%;
+  #message, #debug {
+    pointer-events: none;
     text-align: center;
     color: #fff;
     text-shadow: 0 0 5px rgba(0,0,0,0.3);
     font-size: 1rem;
+    margin-bottom: 10px;
   }
 
   #debug {
-    position: absolute;
-    top: 10px;
-    left: 10px;
     background: rgba(255,255,255,0.7);
-    padding: 8px 10px;
-    border-radius: 8px;
+    color: #222;
     font-family: monospace;
     font-size: 0.8rem;
+    border-radius: 8px;
+    padding: 6px 10px;
   }
 </style>
 </head>
 <body>
 
-<div class="glass">
-  <div class="beer">
+<div class="glass" id="glass">
+  <div class="beer" id="beer">
     <div class="foam"></div>
   </div>
+</div>
+
+<div id="ui">
   <button id="start">🍺 Commencer</button>
-  <button id="invert">↕️ Inverser axe</button>
+  <button id="invert">↕️ Axe normal</button>
   <div id="message">Incline ton téléphone pour boire !</div>
   <div id="debug"></div>
 </div>
 
 <script>
-const glass = document.querySelector(".glass");
-const beer = document.querySelector(".beer");
+const glass = document.getElementById("glass");
+const beer = document.getElementById("beer");
 const startBtn = document.getElementById("start");
 const invertBtn = document.getElementById("invert");
 const message = document.getElementById("message");
 const debug = document.getElementById("debug");
 
-let beerLevel = 0.9;
+let beerLevel = 0.9; // plein
 let beta = 0;
 let gamma = 0;
 let invert = false;
 let empty = false;
+let baseBeta = null; // calibration automatique
 
 async function start() {
-  // Permissions iOS
   if (typeof DeviceOrientationEvent.requestPermission === "function") {
     try {
       const permission = await DeviceOrientationEvent.requestPermission();
@@ -135,6 +152,9 @@ async function start() {
   window.addEventListener("deviceorientation", (e) => {
     beta = e.beta || 0;
     gamma = e.gamma || 0;
+
+    // calibration automatique au lancement
+    if (baseBeta === null) baseBeta = beta;
   });
 
   window.addEventListener("devicemotion", onShake);
@@ -142,28 +162,32 @@ async function start() {
 }
 
 function loop() {
-  // Inclinaison du verre (gauche/droite)
-  const tiltZ = gamma * 0.5;
-  glass.style.transform = `rotate(${tiltZ}deg)`;
-  beer.style.transform = `translateX(-50%) rotate(${-tiltZ}deg)`;
+  // Correction relative à la calibration
+  const relBeta = beta - baseBeta;
+  const relGamma = gamma;
+
+  // Inclinaison visuelle du verre (gauche/droite)
+  glass.style.transform = `rotate(${relGamma * 0.5}deg)`;
+  // Le liquide reste horizontal
+  beer.style.transform = `rotate(${-relGamma * 0.5}deg)`;
 
   // Affichage debug
-  debug.textContent = `β (pitch): ${beta.toFixed(1)}°\nγ (roll): ${gamma.toFixed(1)}°\nNiveau: ${(beerLevel*100).toFixed(0)}%`;
+  debug.textContent = `β: ${beta.toFixed(1)}° | γ: ${gamma.toFixed(1)}° | Niveau: ${(beerLevel*100).toFixed(0)}%`;
 
-  // Calcul de l'inclinaison absolue
-  let absPitch = Math.abs(beta);
-  if (invert) absPitch = -beta; // si on veut inverser la direction du "vers toi"
+  // Détection de "boire"
+  const threshold = 35;
+  const drinking = invert ? relBeta < -threshold : relBeta > threshold;
 
-  // Si penché suffisamment vers soi, on vide
-  if ((invert ? absPitch > 40 : absPitch < -40) && !empty) {
+  if (drinking && !empty) {
     beerLevel -= 0.0025;
-    if (beerLevel < 0) beerLevel = 0;
-    beer.style.height = beerLevel * 100 + "%";
-    message.textContent = "🍺 Glou glou...";
-    if (beerLevel === 0) {
-      message.textContent = "Verre vide ! Secoue pour le remplir 🍻";
+    if (beerLevel <= 0) {
+      beerLevel = 0;
       empty = true;
+      message.textContent = "Verre vide ! Secoue pour le remplir 🍻";
+    } else {
+      message.textContent = "🍺 Glou glou...";
     }
+    beer.style.height = (beerLevel * 100) + "%";
   } else if (!empty) {
     message.textContent = "Incline ton téléphone pour boire !";
   }
@@ -177,7 +201,7 @@ function onShake(e) {
   const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
   if (shake > 40) {
     beerLevel = 0.9;
-    beer.style.height = beerLevel * 100 + "%";
+    beer.style.height = (beerLevel * 100) + "%";
     empty = false;
     message.textContent = "Verre rempli ! 🍺";
   }
