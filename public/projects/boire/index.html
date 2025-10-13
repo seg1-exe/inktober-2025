@@ -25,7 +25,7 @@
   .beer {
     position: absolute;
     bottom: 0;
-    width: 200vw;
+    width: 200vw; /* plus large que l’écran pour simuler le dévers */
     left: -50vw;
     height: 90%;
     background: linear-gradient(to top, #c67c00, #f5a623);
@@ -98,6 +98,7 @@
   let drinking = false;
 
   async function startMotion() {
+    // Permissions sur iOS
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       const permission = await DeviceOrientationEvent.requestPermission();
       if (permission !== 'granted') {
@@ -120,25 +121,24 @@
   }
 
   function animate() {
-    // inclinaison du verre
-    glass.style.transform = `rotateX(${beta * 0.2}deg) rotateY(${gamma * 0.3}deg)`;
+    // inclinaison du verre (effet 3D)
+    glass.style.transform = `rotateX(${beta * 0.25}deg) rotateY(${gamma * 0.3}deg)`;
 
     // le liquide reste horizontal
     beer.style.transform = `rotate(${-gamma * 0.5}deg)`;
 
-    // si le téléphone est incliné => boire
-    if (beta > 60 && beerHeight > 0) {
-      beerHeight -= 0.15; // vitesse du vidage
-      beer.style.height = beerHeight + "%";
-      drinking = true;
-    } else {
-      drinking = false;
-    }
+    // seuil d'inclinaison (plus de 40° => boire)
+    const angle = Math.abs(beta);
+    const drinkingNow = angle > 40;
 
-    if (beerHeight <= 0) {
-      beerHeight = 0;
-      message.textContent = "🍻 Verre vide ! Secoue pour remplir à nouveau.";
-    } else if (!drinking) {
+    if (drinkingNow && beerHeight > 0) {
+      beerHeight -= 0.25; // vitesse du vidage
+      if (beerHeight < 0) beerHeight = 0;
+      beer.style.height = beerHeight + "%";
+      message.textContent = "🍺 Glou glou...";
+    } else if (beerHeight <= 0) {
+      message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
+    } else if (!drinkingNow) {
       message.textContent = "Incline ton téléphone pour boire !";
     }
 
