@@ -13,7 +13,6 @@
     background: radial-gradient(circle at center, #f5deb3, #e0b95d);
     font-family: system-ui, sans-serif;
   }
-
   .glass {
     position: relative;
     width: 100vw;
@@ -21,18 +20,16 @@
     overflow: hidden;
     transform-origin: center center;
   }
-
   .beer {
     position: absolute;
     bottom: 0;
-    width: 200vw; /* plus large que l’écran pour simuler le dévers */
+    width: 200vw;
     left: -50vw;
     height: 90%;
     background: linear-gradient(to top, #c67c00, #f5a623);
     transform-origin: center center;
     transition: height 0.1s linear;
   }
-
   .foam {
     position: absolute;
     top: -40px;
@@ -44,12 +41,10 @@
     border-radius: 50%;
     animation: foam 3s infinite ease-in-out;
   }
-
   @keyframes foam {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(3px); }
   }
-
   #start {
     position: absolute;
     bottom: 40px;
@@ -64,7 +59,6 @@
     backdrop-filter: blur(4px);
     cursor: pointer;
   }
-
   #message {
     position: absolute;
     bottom: 10px;
@@ -77,7 +71,6 @@
 </style>
 </head>
 <body>
-
 <div class="glass">
   <div class="beer">
     <div class="foam"></div>
@@ -85,20 +78,17 @@
   <button id="start">🍺 Commencer</button>
   <div id="message">Incline ton téléphone pour boire !</div>
 </div>
-
 <script>
   const glass = document.querySelector(".glass");
   const beer = document.querySelector(".beer");
   const startBtn = document.getElementById("start");
   const message = document.getElementById("message");
-
   let beerHeight = 90;
   let beta = 0;
   let gamma = 0;
-  let drinking = false;
+  let isDrinking = false;
 
   async function startMotion() {
-    // Permissions sur iOS
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       const permission = await DeviceOrientationEvent.requestPermission();
       if (permission !== 'granted') {
@@ -106,18 +96,16 @@
         return;
       }
     }
-
     startBtn.style.display = 'none';
     message.textContent = "Santé ! 🍻";
-
     window.addEventListener("deviceorientation", (e) => {
       beta = e.beta || 0;
       gamma = e.gamma || 0;
+      // On considère que l'utilisateur boit si le téléphone est incliné vers l'avant (beta > 15)
+      isDrinking = Math.abs(beta) > 15;
     });
-
     window.addEventListener("devicemotion", handleShake);
-
-    animate();
+    requestAnimationFrame(animate);
   }
 
   function animate() {
@@ -126,28 +114,23 @@
     // Le liquide reste horizontal
     beer.style.transform = `rotate(${-gamma * 0.5}deg)`;
 
-    // Seuil d'inclinaison (plus de 20° => boire)
-    const angle = Math.abs(beta);
-    const drinkingNow = angle > 20; // Seuil réduit pour plus de sensibilité
-
-    if (drinkingNow && beerHeight > 0) {
-        beerHeight -= 0.3; // Vitesse du vidage augmentée pour un effet visible
-        if (beerHeight < 0) beerHeight = 0;
-        beer.style.height = beerHeight + "%";
-        message.textContent = "🍺 Glou glou...";
+    // Si l'utilisateur est en train de boire et qu'il reste de la bière
+    if (isDrinking && beerHeight > 0) {
+      beerHeight -= 0.2;
+      beer.style.height = beerHeight + "%";
+      message.textContent = "🍺 Glou glou...";
     } else if (beerHeight <= 0) {
-        message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
-    } else if (!drinkingNow) {
-        message.textContent = "Incline ton téléphone pour boire !";
+      message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
+    } else {
+      message.textContent = "Incline ton téléphone pour boire !";
     }
 
     requestAnimationFrame(animate);
-    }
-
+  }
 
   function handleShake(e) {
     const accel = Math.abs(e.acceleration.x) + Math.abs(e.acceleration.y) + Math.abs(e.acceleration.z);
-    if (accel > 40 && beerHeight < 90) {
+    if (accel > 40 && beerHeight <= 0) {
       beerHeight = 90;
       beer.style.height = beerHeight + "%";
       message.textContent = "Verre rempli ! 🍺";
@@ -156,6 +139,5 @@
 
   startBtn.addEventListener("click", startMotion);
 </script>
-
 </body>
 </html>
