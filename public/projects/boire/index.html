@@ -5,63 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Beer Simulator 🍺</title>
 <style>
-  :root {
-    --bg1: #f5deb3;
-    --bg2: #e0b95d;
-    --amber1: #f5a623;
-    --amber2: #c67c00;
-  }
   html, body {
-    height: 100%;
     margin: 0;
-    background: radial-gradient(circle at center, var(--bg1), var(--bg2));
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    padding: 0;
+    height: 100%;
+    background: radial-gradient(circle at center, #f5deb3, #e0b95d);
     overflow: hidden;
+    touch-action: none;
+    font-family: system-ui, sans-serif;
   }
-
-  /* Le verre */
-  .glass {
+  canvas {
     position: fixed;
     inset: 0;
-    transform-origin: 50% 50%;
-    will-change: transform;
-  }
-
-  /* La bière */
-  .beer {
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 220vw;
-    height: 90vh;
-    min-height: 5vh; /* ✅ empêche le "trou" en bas */
-    background: linear-gradient(to top, var(--amber2), var(--amber1));
-    transform-origin: 50% 100%;
-    will-change: transform, height;
-  }
-
-  .foam {
-    position: absolute;
-    top: -34px;
-    left: 0;
     width: 100%;
-    height: 52px;
-    background: radial-gradient(circle at 50% 55%, #fff 42%, #f7f3e9 100%);
-    border-radius: 50%/60%;
-    opacity: 0.95;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
-    animation: foam-bob 3s ease-in-out infinite;
-    pointer-events: none;
+    height: 100%;
+    display: block;
   }
-
-  @keyframes foam-bob {
-    50% {
-      transform: translateY(2px);
-    }
-  }
-
-  /* Interface utilisateur */
   #ui {
     position: fixed;
     inset: 0;
@@ -69,10 +28,9 @@
     flex-direction: column;
     justify-content: flex-end;
     align-items: center;
-    z-index: 10;
     pointer-events: none;
+    z-index: 10;
   }
-
   #start {
     pointer-events: all;
     background: #fff8;
@@ -85,23 +43,18 @@
     margin-bottom: 20px;
     cursor: pointer;
   }
-
   #status {
     color: #fff;
     font-size: 1.1rem;
-    text-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
     margin-bottom: 40px;
-    min-height: 1.2em; /* ✅ garde l’espace visuel constant */
+    min-height: 1.2em;
   }
 </style>
 </head>
 <body>
 
-<div class="glass" id="glass">
-  <div class="beer" id="beer">
-    <div class="foam"></div>
-  </div>
-</div>
+<canvas id="beerCanvas"></canvas>
 
 <div id="ui">
   <button id="start">🍺 Commencer</button>
@@ -110,47 +63,93 @@
 
 <script>
 (() => {
-  const glass = document.getElementById('glass');
-  const beer  = document.getElementById('beer');
+  const canvas = document.getElementById('beerCanvas');
+  const ctx = canvas.getContext('2d');
   const startBtn = document.getElementById('start');
   const statusEl = document.getElementById('status');
 
+  let width, height;
   let beta = 0, gamma = 0;
   let baseBeta = 0, baseGamma = 0;
-  let betaRel = 0, gammaRel = 0;
-  let level = 1.0;
+  let beerLevel = 0.9;
   let empty = false;
-  let lastT = null;
+  let time = 0;
 
-  const DRAIN_PER_SEC = 0.22;
-  const MAX_LIQ_VH = 90;
-  const MAX_TILT_VISUAL = 20;
-  const THRESH = -5; // angle d’inclinaison (β < -5°)
+  const DRAIN_RATE = 0.18; // vitesse de vidage
+  const THRESH = -5;       // incline vers soi pour boire
+  const MIN_LEVEL = 0.05;  // reste toujours un fond
+  const FOAM_HEIGHT = 20;  // hauteur de mousse
 
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const mapLevelToVH = (level) => clamp(level, 0.05, 1) * MAX_LIQ_VH; // ✅ jamais 0
-
-  function applyVisual() {
-    const zTilt = clamp(gammaRel, -MAX_TILT_VISUAL, MAX_TILT_VISUAL);
-    glass.style.transform = `rotate(${zTilt}deg)`;
-    beer.style.transform = `translateX(-50%) rotate(${-zTilt}deg)`;
-    beer.style.height = mapLevelToVH(level) + 'vh';
+  function resize() {
+    width = canvas.width = window.innerWidth * window.devicePixelRatio;
+    height = canvas.height = window.innerHeight * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
   }
 
-  function drinkLogic(dt) {
-    if (betaRel < THRESH && !empty && level > 0) {
-      level -= DRAIN_PER_SEC * dt;
-      if (level <= 0.01) {
-        level = 0.01;
+  window.addEventListener('resize', resize);
+  resize();
+
+  function drawBeer() {
+    ctx.clearRect(0, 0, width, height);
+
+    const midY = height * beerLevel;
+    const tilt = gamma * 0.02; // inclinaison visuelle (roulis)
+    const amplitude = 8; // amplitude de vague
+    const waveLength = 80; // largeur de vague
+
+    // Couleur bière
+    const gradient = ctx.createLinearGradient(0, midY, 0, height);
+    gradient.addColorStop(0, '#f5a623');
+    gradient.addColorStop(1, '#c67c00');
+
+    ctx.beginPath();
+    // Surface de la bière avec vagues inclinées
+    for (let x = 0; x <= width; x += 10) {
+      const angle = (x / waveLength) + time * 2;
+      const y = midY + Math.sin(angle) * amplitude + x * tilt;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Mousse blanche
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 10) {
+      const angle = (x / waveLength) + time * 2.5;
+      const y = midY + Math.sin(angle) * (amplitude * 0.6) - FOAM_HEIGHT;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = '#fff';
+    ctx.shadowColor = 'rgba(255,255,255,0.6)';
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  function loop(dt) {
+    time += 0.016;
+
+    // Vidage si incliné
+    if (beta - baseBeta < THRESH && !empty && beerLevel > MIN_LEVEL) {
+      beerLevel -= DRAIN_RATE * 0.016;
+      statusEl.textContent = '🍺 Glou glou…';
+      if (beerLevel <= MIN_LEVEL) {
+        beerLevel = MIN_LEVEL;
         empty = true;
         statusEl.textContent = 'Secoue pour remplir ton verre 🍻';
-      } else {
-        statusEl.textContent = '🍺 Glou glou…';
       }
     } else if (!empty) {
-      // pas de message tant que non vide
       statusEl.textContent = '';
     }
+
+    drawBeer();
+    requestAnimationFrame(loop);
   }
 
   function onShake(e) {
@@ -158,17 +157,17 @@
     const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
     const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
     if (shake > 40) {
-      level = 1.0;
+      beerLevel = 0.9;
       empty = false;
       statusEl.textContent = '';
     }
   }
 
   async function start() {
-    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
       try {
         const permission = await DeviceOrientationEvent.requestPermission();
-        if (permission !== "granted") {
+        if (permission !== 'granted') {
           statusEl.textContent = "Permission refusée 😢";
           return;
         }
@@ -178,10 +177,10 @@
       }
     }
 
-    startBtn.style.display = "none";
+    startBtn.style.display = 'none';
     statusEl.textContent = '';
 
-    window.addEventListener("deviceorientation", (e) => {
+    window.addEventListener('deviceorientation', (e) => {
       beta = e.beta || 0;
       gamma = e.gamma || 0;
       if (baseBeta === 0 && baseGamma === 0) {
@@ -190,25 +189,11 @@
       }
     });
 
-    window.addEventListener("devicemotion", onShake);
+    window.addEventListener('devicemotion', onShake);
     requestAnimationFrame(loop);
   }
 
-  function loop(ts) {
-    if (!lastT) lastT = ts;
-    const dt = Math.min((ts - lastT) / 1000, 0.1);
-    lastT = ts;
-
-    betaRel = beta - baseBeta;
-    gammaRel = gamma - baseGamma;
-
-    drinkLogic(dt);
-    applyVisual();
-
-    requestAnimationFrame(loop);
-  }
-
-  startBtn.addEventListener("click", start);
+  startBtn.addEventListener('click', start);
 })();
 </script>
 
