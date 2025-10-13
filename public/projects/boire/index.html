@@ -1,143 +1,185 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Beer Simulator 🍺</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Beer Simulator — Inktober “boire” 🍺</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    overflow: hidden;
-    background: radial-gradient(circle at center, #f5deb3, #e0b95d);
-    font-family: system-ui, sans-serif;
-  }
+  :root { --bg1:#f5deb3; --bg2:#e0b95d; --amber1:#f5a623; --amber2:#c67c00; }
+  html, body { height:100%; margin:0; background: radial-gradient(circle at center, var(--bg1), var(--bg2)); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; overflow:hidden; }
+  /* Le "verre" = plein écran */
   .glass {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    transform-origin: center center;
+    position: fixed; inset: 0; transform-origin: 50% 50%; will-change: transform;
   }
+  /* La bière : très large pour pouvoir "garder l’horizon" en rotation */
   .beer {
-    position: absolute;
-    bottom: 0;
-    width: 200vw;
-    left: -50vw;
-    height: 90%;
-    background: linear-gradient(to top, #c67c00, #f5a623);
-    transform-origin: center center;
-    transition: height 0.1s linear;
+    position:absolute; bottom:0; left:50%; transform: translateX(-50%);
+    width: 220vw; /* plus large que l’écran -> bord toujours visible même en rotation */
+    height: 90vh; /* plein au démarrage */
+    background: linear-gradient(to top, var(--amber2), var(--amber1));
+    will-change: transform, height;
   }
+  /* Mousse au bord supérieur du liquide */
   .foam {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    width: 100%;
-    height: 60px;
-    background: radial-gradient(circle at 50% 50%, #fff 40%, #f7f3e9 100%);
-    opacity: 0.9;
-    border-radius: 50%;
-    animation: foam 3s infinite ease-in-out;
+    position:absolute; top:-34px; left:0; width:100%; height: 52px;
+    background: radial-gradient(circle at 50% 55%, #fff 42%, #f7f3e9 100%);
+    border-radius: 50%/60%;
+    opacity: .95; pointer-events:none; filter: drop-shadow(0 1px 1px rgba(0,0,0,.1));
+    animation: foam-bob 3s ease-in-out infinite;
   }
-  @keyframes foam {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(3px); }
+  @keyframes foam-bob { 50% { transform: translateY(2px) } }
+
+  /* UI */
+  .hud {
+    position: fixed; inset: auto 0 18px 0; display:flex; justify-content:center; gap:8px; pointer-events:none;
   }
-  #start {
-    position: absolute;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #fff8;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 20px;
-    font-size: 1rem;
-    font-weight: 600;
-    backdrop-filter: blur(4px);
-    cursor: pointer;
+  .chip {
+    pointer-events:auto;
+    background:#ffffffaa; backdrop-filter: blur(4px);
+    padding:10px 14px; border-radius:12px; font-weight:600; border:1px solid #ffffff55;
   }
-  #message {
-    position: absolute;
-    bottom: 10px;
-    width: 100%;
-    text-align: center;
-    color: #fff;
-    text-shadow: 0 0 5px rgba(0,0,0,0.3);
-    font-size: 1rem;
-  }
+  .btn { cursor:pointer; user-select:none; }
+  .msg { font-weight:500; }
+  .debug { position: fixed; top:10px; left:10px; font:12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color:#222; background:#fff8; border:1px solid #fff7; border-radius:8px; padding:8px 10px; display:none; }
 </style>
 </head>
 <body>
-<div class="glass">
-  <div class="beer">
+
+<div class="glass" id="glass">
+  <div class="beer" id="beer">
     <div class="foam"></div>
   </div>
-  <button id="start">🍺 Commencer</button>
-  <div id="message">Incline ton téléphone pour boire !</div>
 </div>
+
+<div class="hud">
+  <button class="chip btn" id="start">🍺 Commencer</button>
+  <div class="chip msg" id="status">La bière est pleine. Incline pour boire.</div>
+</div>
+
+<pre class="debug" id="debug"></pre>
+
 <script>
-  const glass = document.querySelector(".glass");
-  const beer = document.querySelector(".beer");
-  const startBtn = document.getElementById("start");
-  const message = document.getElementById("message");
-  let beerHeight = 90;
-  let beta = 0;
-  let gamma = 0;
-  let isDrinking = false;
+(() => {
+  const glass = document.getElementById('glass');
+  const beer  = document.getElementById('beer');
+  const startBtn = document.getElementById('start');
+  const statusEl = document.getElementById('status');
+  const debugEl  = document.getElementById('debug'); // mets .style.display='block' si tu veux voir les valeurs
 
-  async function startMotion() {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      const permission = await DeviceOrientationEvent.requestPermission();
-      if (permission !== 'granted') {
-        message.textContent = "Permission refusée 😢";
-        return;
+  // État
+  let level = 1.0;               // 1 = plein, 0 = vide
+  let beta = 0, gamma = 0;       // angles DeviceOrientation
+  let lastT = null;              // timestamp pour dt
+  let running = false;           // anim active
+  let isEmpty = false;
+
+  // Paramètres
+  const THRESH = 40;             // seuil d’inclinaison en degrés pour "boire"
+  const DRAIN_PER_SEC = 0.18;    // vitesse de vidage (part du niveau / seconde) à THRESH (augmente au-delà)
+  const SHAKE_THRESHOLD = 42;    // seuil de secousse
+  const MAX_LEVEL = 0.90;        // hauteur visuelle initiale (90% d’écran)
+
+  // Init visuel pleine bière
+  updateVisual();
+
+  // --- Permissions & démarrage ---
+  startBtn.addEventListener('click', async () => {
+    try {
+      // iOS (et parfois Android) demandent une permission depuis un geste utilisateur
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        try { await DeviceMotionEvent.requestPermission(); } catch {}
       }
-    }
-    startBtn.style.display = 'none';
-    message.textContent = "Santé ! 🍻";
-    window.addEventListener("deviceorientation", (e) => {
-      beta = e.beta || 0;
-      gamma = e.gamma || 0;
-      // On considère que l'utilisateur boit si le téléphone est incliné vers l'avant (beta > 15)
-      isDrinking = Math.abs(beta) > 15;
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try { await DeviceOrientationEvent.requestPermission(); } catch {}
+      }
+    } catch {}
+
+    window.addEventListener('deviceorientation', onOrientation, { passive: true });
+    window.addEventListener('devicemotion', onMotion, { passive: true });
+
+    // Fallback desktop (tests): flèches gauche/droite = gamma, haut/bas = beta
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft')  gamma -= 3;
+      if (e.key === 'ArrowRight') gamma += 3;
+      if (e.key === 'ArrowUp')    beta  += 3;
+      if (e.key === 'ArrowDown')  beta  -= 3;
     });
-    window.addEventListener("devicemotion", handleShake);
-    requestAnimationFrame(animate);
+
+    startBtn.disabled = true;
+    startBtn.textContent = '✅ Autorisé';
+    statusEl.textContent = 'Incline pour boire…';
+    running = true;
+    requestAnimationFrame(tick);
+  });
+
+  function onOrientation(e) {
+    // Valeurs peuvent être null selon les devices
+    beta  = typeof e.beta  === 'number' ? e.beta  : beta;
+    gamma = typeof e.gamma === 'number' ? e.gamma : gamma;
   }
 
-  function animate() {
-    // Inclinaison du verre (effet 3D)
-    glass.style.transform = `rotateX(${beta * 0.25}deg) rotateY(${gamma * 0.3}deg)`;
-    // Le liquide reste horizontal
-    beer.style.transform = `rotate(${-gamma * 0.5}deg)`;
+  function onMotion(e) {
+    // Si verre vide, la secousse remplit à nouveau
+    if (!isEmpty) return;
+    const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
+    const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
+    if (shake > SHAKE_THRESHOLD) {
+      level = 1.0;
+      isEmpty = false;
+      statusEl.textContent = 'Verre rempli ! 🍺';
+      updateVisual();
+    }
+  }
 
-    // Si l'utilisateur est en train de boire et qu'il reste de la bière
-    if (isDrinking && beerHeight > 0) {
-      beerHeight -= 0.2;
-      beer.style.height = beerHeight + "%";
-      message.textContent = "🍺 Glou glou...";
-    } else if (beerHeight <= 0) {
-      message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
+  function tick(t) {
+    if (!running) return;
+    if (lastT == null) lastT = t;
+    const dt = Math.min(0.1, (t - lastT) / 1000); // clamp dt à 100ms pour stabilité
+    lastT = t;
+
+    // 1) Inclinaison visuelle du "verre" (légère) autour de Z pour le feeling
+    //    On utilise gamma (gauche/droite). Tu peux aussi combiner beta si tu veux plus de "3D".
+    const glassTilt = gamma * 0.6; // degré
+    glass.style.transform = `rotate(${glassTilt}deg)`;
+
+    // 2) Le liquide reste horizontal -> on contre-rotate l'intérieur
+    beer.style.transform = `translateX(-50%) rotate(${-glassTilt}deg)`;
+
+    // 3) Détermination "boire ?" : on considère la magnitude d'inclinaison (peu importe direction)
+    const angleMag = Math.sqrt((beta||0)*(beta||0) + (gamma||0)*(gamma||0));
+
+    // 4) Drainage pendant l’inclinaison
+    if (angleMag > THRESH && level > 0) {
+      // plus c'est incliné, plus ça se vide vite (linéaire au-dessus du seuil)
+      const factor = Math.min(2, angleMag / THRESH); // max x2 de vitesse
+      level -= DRAIN_PER_SEC * factor * dt;
+      if (level < 0) level = 0;
+      statusEl.textContent = '🍺 Glou glou…';
+      updateVisual();
     } else {
-      message.textContent = "Incline ton téléphone pour boire !";
+      // pas assez incliné -> on arrête de se vider
+      if (!isEmpty) statusEl.textContent = 'Incline pour boire.';
     }
 
-    requestAnimationFrame(animate);
-  }
-
-  function handleShake(e) {
-    const accel = Math.abs(e.acceleration.x) + Math.abs(e.acceleration.y) + Math.abs(e.acceleration.z);
-    if (accel > 40 && beerHeight <= 0) {
-      beerHeight = 90;
-      beer.style.height = beerHeight + "%";
-      message.textContent = "Verre rempli ! 🍺";
+    // 5) État vide -> msg + attente secousse
+    if (level === 0 && !isEmpty) {
+      isEmpty = true;
+      statusEl.textContent = 'Verre vide. Secoue pour re-remplir 🍻';
     }
+
+    // Debug (optionnel)
+    // debugEl.style.display = 'block';
+    debugEl.textContent = `beta=${beta?.toFixed(1)}°  gamma=${gamma?.toFixed(1)}°  |  angle=${angleMag.toFixed(1)}°  |  level=${(level*100).toFixed(0)}%`;
+
+    requestAnimationFrame(tick);
   }
 
-  startBtn.addEventListener("click", startMotion);
+  function updateVisual() {
+    // Hauteur visuelle de la bière (0..1) mappée sur la hauteur d'écran
+    const h = Math.max(0, Math.min(1, level)) * MAX_LEVEL * 100; // en vh %
+    beer.style.height = h + 'vh';
+  }
+})();
 </script>
 </body>
 </html>
