@@ -2,236 +2,194 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Beer Simulator — Desktop Test 🍺</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Beer Simulator 🍺</title>
 <style>
-  :root { --bg1:#f5deb3; --bg2:#e0b95d; --amber1:#f5a623; --amber2:#c67c00; }
-  html, body { height:100%; margin:0; background: radial-gradient(circle at center, var(--bg1), var(--bg2)); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; overflow:hidden; }
-  /* Le "verre" = plein écran (visuel) */
-  .glass { position: fixed; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-  /* La bière : très large pour conserver une “ligne d’horizon” visible même en rotation */
-  .beer {
-    position:absolute; bottom:0; left:50%; transform: translateX(-50%);
-    width: 220vw; height: 90vh;
-    background: linear-gradient(to top, var(--amber2), var(--amber1));
-    transform-origin: 50% 100%; /* on contre-rotatera autour du bas */
-    will-change: transform, height;
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #f5deb3, #e0b95d);
+    font-family: system-ui, sans-serif;
   }
-  .foam {
-    position:absolute; top:-34px; left:0; width:100%; height: 52px;
-    background: radial-gradient(circle at 50% 55%, #fff 42%, #f7f3e9 100%);
-    border-radius: 50%/60%; opacity:.95; filter: drop-shadow(0 1px 1px rgba(0,0,0,.1));
-    animation: foam-bob 3s ease-in-out infinite; pointer-events:none;
-  }
-  @keyframes foam-bob { 50% { transform: translateY(2px) } }
 
-  .hud { position: fixed; left:0; right:0; bottom:18px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; z-index:10; }
-  .chip {
-    background:#ffffffcc; backdrop-filter: blur(4px);
-    padding:10px 14px; border-radius:12px; font-weight:600; border:1px solid #ffffff66;
+  .glass {
+    position: fixed;
+    inset: 0;
+    transform-origin: center center;
+    will-change: transform;
   }
-  .btn { cursor:pointer; user-select:none; }
-  .msg { font-weight:500; }
-  .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-  .debug {
-    position: fixed; top:10px; left:10px;
-    font:12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color:#222; background:#fff8; border:1px solid #fff7; border-radius:8px; padding:8px 10px;
+
+  .beer {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200vw;
+    height: 90%;
+    background: linear-gradient(to top, #c67c00, #f5a623);
+    transform-origin: center center;
   }
-  .kbd { font:600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; background:#000; color:#fff; padding:2px 6px; border-radius:6px; }
+
+  .foam {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: radial-gradient(circle at 50% 50%, #fff 40%, #f7f3e9 100%);
+    opacity: 0.9;
+    border-radius: 50%;
+    animation: foam 3s infinite ease-in-out;
+  }
+
+  @keyframes foam {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+  }
+
+  #start, #invert {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff8;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+
+  #start { bottom: 70px; }
+  #invert { bottom: 30px; }
+
+  #message {
+    position: absolute;
+    bottom: 10px;
+    width: 100%;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 0 5px rgba(0,0,0,0.3);
+    font-size: 1rem;
+  }
+
+  #debug {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255,255,255,0.7);
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.8rem;
+  }
 </style>
 </head>
 <body>
 
-<div class="glass" id="glass">
-  <div class="beer" id="beer">
+<div class="glass">
+  <div class="beer">
     <div class="foam"></div>
   </div>
+  <button id="start">🍺 Commencer</button>
+  <button id="invert">↕️ Inverser axe</button>
+  <div id="message">Incline ton téléphone pour boire !</div>
+  <div id="debug"></div>
 </div>
-
-<div class="hud">
-  <div class="row">
-    <button class="chip btn" id="start">🍺 Démarrer capteurs</button>
-    <button class="chip btn" id="calibrate">🎯 Calibrer</button>
-    <button class="chip btn" id="invert">↕️ Inverser avant/arrière</button>
-    <button class="chip btn" id="shake">🌀 Simuler secousse (desktop)</button>
-  </div>
-  <div class="row">
-    <div class="chip msg" id="status">Plein. Incline pour boire. (Desktop : ↑↓←→, <span class="kbd">R</span>=Calibrer, <span class="kbd">F</span>=Inverser, <span class="kbd">S</span>=Secousse)</div>
-  </div>
-</div>
-
-<pre class="debug" id="debug"></pre>
 
 <script>
-(() => {
-  const glass = document.getElementById('glass');
-  const beer  = document.getElementById('beer');
-  const startBtn = document.getElementById('start');
-  const statusEl = document.getElementById('status');
-  const debugEl  = document.getElementById('debug');
-  const calibrateBtn = document.getElementById('calibrate');
-  const invertBtn = document.getElementById('invert');
-  const shakeBtn = document.getElementById('shake');
+const glass = document.querySelector(".glass");
+const beer = document.querySelector(".beer");
+const startBtn = document.getElementById("start");
+const invertBtn = document.getElementById("invert");
+const message = document.getElementById("message");
+const debug = document.getElementById("debug");
 
-  // État (angles en degrés)
-  let beta = 0, gamma = 0;                // mesures “courantes”
-  let baseBeta = 0, baseGamma = 0;        // calibration (téléphone droit)
-  let betaRel = 0, gammaRel = 0;          // angles calibrés
-  let invertPitch = 1;                    // inverser avant/arrière si nécessaire
-  let level = 1.0;                        // 1 = plein, 0 = vide
-  let empty = false;
-  let lastT = null;
-  let running = true;                     // boucle d’animation toujours on (desktop OK)
-  let sensorActive = false;               // capteurs mobiles actifs ?
+let beerLevel = 0.9;
+let beta = 0;
+let gamma = 0;
+let invert = false;
+let empty = false;
 
-  // Paramètres réglables
-  const THRESH = 40;                      // seuil d’angle pour “boire” (en °)
-  const DRAIN_PER_SEC = 0.22;             // vitesse de vidage à partir du seuil
-  const MAX_LIQ_VH = 90;                  // hauteur visuelle max en vh
-  const MAX_TILT_VISUAL = 20;             // tilt visuel max (en °) autour de Z pour le “verre”
-  const KEY_STEP = 3;                     // pas clavier (en °)
-
-  // Desktop: angles simulés si pas de capteurs
-  let simBeta = 0, simGamma = 0;          // ↑↓ = beta, ←→ = gamma
-  let useSim = true;                      // par défaut, oui, jusqu’à démarrage capteurs
-
-  // ----------------------------------------------------------
-  // Helpers
-  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-  function mapLevelToVH(level){ return clamp(level,0,1) * MAX_LIQ_VH; }
-
-  function applyVisual() {
-    // Visuel : rotation Z du “verre” pour un feedback stable (évite la 3D “vers l’arrière”)
-    const zTilt = clamp(gammaRel, -MAX_TILT_VISUAL, MAX_TILT_VISUAL);
-    glass.style.transform = `rotate(${zTilt}deg)`;
-
-    // Le liquide reste “horizontal” : contre-rotation Z, pivot en bas
-    beer.style.transform = `translateX(-50%) rotate(${-zTilt}deg)`;
-    beer.style.height = mapLevelToVH(level) + 'vh';
-  }
-
-  function drinkLogic(dt) {
-    // L’angle “boire” = pitch calibré (beta) avec inversion possible
-    const pitch = betaRel * invertPitch;
-    const over = Math.abs(pitch) - THRESH;
-    if (over > 0 && !empty && level > 0) {
-      // vitesse croît linéairement au-delà du seuil (x2 max si 80°)
-      const factor = clamp((Math.abs(pitch) / THRESH), 1, 2);
-      level -= DRAIN_PER_SEC * factor * dt;
-      if (level <= 0) {
-        level = 0;
-        empty = true;
-        statusEl.textContent = 'Verre vide. Secoue pour re-remplir 🍻';
-      } else {
-        statusEl.textContent = '🍺 Glou glou…';
+async function start() {
+  // Permissions iOS
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== "granted") {
+        message.textContent = "Permission refusée 😢";
+        return;
       }
-    } else {
-      if (!empty) statusEl.textContent = 'Incline pour boire.';
+    } catch {
+      message.textContent = "Erreur de permission 😢";
+      return;
     }
   }
 
-  function updateDebug() {
-    debugEl.textContent =
-      `β (pitch) = ${beta.toFixed(1)}°  |  γ (roll) = ${gamma.toFixed(1)}°\n` +
-      `β₀=${baseBeta.toFixed(1)}°, γ₀=${baseGamma.toFixed(1)}°  |  invert=${invertPitch>0?'normal':'inversé'}\n` +
-      `βrel=${betaRel.toFixed(1)}°, γrel=${gammaRel.toFixed(1)}°\n` +
-      `niveau=${(level*100).toFixed(0)}%  |  empty=${empty}  |  mode=${useSim?'DESKTOP':'MOBILE'}`;
-  }
+  startBtn.style.display = "none";
+  message.textContent = "Santé 🍻 Incline pour boire !";
 
-  // ----------------------------------------------------------
-  // Capteurs mobiles
-  async function startSensors() {
-    try {
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        try { await DeviceMotionEvent.requestPermission(); } catch {}
-      }
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try { await DeviceOrientationEvent.requestPermission(); } catch {}
-      }
-    } catch {}
-
-    window.addEventListener('deviceorientation', (e) => {
-      // On a un évènement => on passe en mode capteurs
-      useSim = false; sensorActive = true;
-      beta  = (typeof e.beta  === 'number') ? e.beta  : beta;
-      gamma = (typeof e.gamma === 'number') ? e.gamma : gamma;
-    }, { passive: true });
-
-    window.addEventListener('devicemotion', (e) => {
-      // Si vide, une secousse remplit
-      if (!empty) return;
-      const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
-      const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
-      if (shake > 42) refill();
-    }, { passive: true });
-
-    startBtn.textContent = '✅ Capteurs actifs';
-    sensorActive = true;
-  }
-
-  function calibrate() {
-    // Capture un offset de référence (position actuelle = “droit”)
-    baseBeta = beta;
-    baseGamma = gamma;
-    statusEl.textContent = 'Calibré ✅';
-  }
-
-  function refill() {
-    level = 1.0;
-    empty = false;
-    statusEl.textContent = 'Verre rempli ! 🍺';
-  }
-
-  // ----------------------------------------------------------
-  // Desktop simulation (clavier)
-  window.addEventListener('keydown', (e) => {
-    if (!useSim) return;
-    if (e.key === 'ArrowUp')   simBeta += KEY_STEP;
-    if (e.key === 'ArrowDown') simBeta -= KEY_STEP;
-    if (e.key === 'ArrowLeft') simGamma -= KEY_STEP;
-    if (e.key === 'ArrowRight')simGamma += KEY_STEP;
-    if (e.key.toLowerCase() === 'r') { baseBeta = useSim ? simBeta : beta; baseGamma = useSim ? simGamma : gamma; statusEl.textContent = 'Calibré ✅'; }
-    if (e.key.toLowerCase() === 'f') { invertPitch *= -1; statusEl.textContent = (invertPitch>0?'Axe normal ↕️':'Axe inversé ↕️'); }
-    if (e.key.toLowerCase() === 's') { if (empty) refill(); }
+  window.addEventListener("deviceorientation", (e) => {
+    beta = e.beta || 0;
+    gamma = e.gamma || 0;
   });
 
-  // Boutons UI
-  startBtn.addEventListener('click', startSensors);
-  calibrateBtn.addEventListener('click', () => { baseBeta = useSim ? simBeta : beta; baseGamma = useSim ? simGamma : gamma; statusEl.textContent = 'Calibré ✅'; });
-  invertBtn.addEventListener('click', () => { invertPitch *= -1; statusEl.textContent = (invertPitch>0?'Axe normal ↕️':'Axe inversé ↕️'); });
-  shakeBtn.addEventListener('click', () => { if (empty) refill(); });
+  window.addEventListener("devicemotion", onShake);
+  requestAnimationFrame(loop);
+}
 
-  // ----------------------------------------------------------
-  // Boucle principale
-  function tick(ts) {
-    if (lastT == null) lastT = ts;
-    const dt = clamp((ts - lastT)/1000, 0, 0.1);
-    lastT = ts;
+function loop() {
+  // Inclinaison du verre (gauche/droite)
+  const tiltZ = gamma * 0.5;
+  glass.style.transform = `rotate(${tiltZ}deg)`;
+  beer.style.transform = `translateX(-50%) rotate(${-tiltZ}deg)`;
 
-    // Source d’angles : capteurs ou simulation
-    if (useSim) { beta = simBeta; gamma = simGamma; }
+  // Affichage debug
+  debug.textContent = `β (pitch): ${beta.toFixed(1)}°\nγ (roll): ${gamma.toFixed(1)}°\nNiveau: ${(beerLevel*100).toFixed(0)}%`;
 
-    // Angles calibrés (valeurs relatives au “droit”)
-    betaRel  = beta  - baseBeta;
-    gammaRel = gamma - baseGamma;
+  // Calcul de l'inclinaison absolue
+  let absPitch = Math.abs(beta);
+  if (invert) absPitch = -beta; // si on veut inverser la direction du "vers toi"
 
-    // Logique “boire”
-    drinkLogic(dt);
-
-    // Application visuelle
-    applyVisual();
-
-    // Debug
-    updateDebug();
-
-    if (running) requestAnimationFrame(tick);
+  // Si penché suffisamment vers soi, on vide
+  if ((invert ? absPitch > 40 : absPitch < -40) && !empty) {
+    beerLevel -= 0.0025;
+    if (beerLevel < 0) beerLevel = 0;
+    beer.style.height = beerLevel * 100 + "%";
+    message.textContent = "🍺 Glou glou...";
+    if (beerLevel === 0) {
+      message.textContent = "Verre vide ! Secoue pour le remplir 🍻";
+      empty = true;
+    }
+  } else if (!empty) {
+    message.textContent = "Incline ton téléphone pour boire !";
   }
 
-  // Init visuel plein
-  applyVisual();
-  requestAnimationFrame(tick);
-})();
+  requestAnimationFrame(loop);
+}
+
+function onShake(e) {
+  if (!empty) return;
+  const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
+  const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
+  if (shake > 40) {
+    beerLevel = 0.9;
+    beer.style.height = beerLevel * 100 + "%";
+    empty = false;
+    message.textContent = "Verre rempli ! 🍺";
+  }
+}
+
+invertBtn.addEventListener("click", () => {
+  invert = !invert;
+  invertBtn.textContent = invert ? "↕️ Axe inversé" : "↕️ Axe normal";
+});
+
+startBtn.addEventListener("click", start);
 </script>
+
 </body>
 </html>
