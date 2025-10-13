@@ -121,29 +121,29 @@
   }
 
   function animate() {
-    // inclinaison du verre (effet 3D)
+    // Inclinaison du verre (effet 3D)
     glass.style.transform = `rotateX(${beta * 0.25}deg) rotateY(${gamma * 0.3}deg)`;
-
-    // le liquide reste horizontal
+    // Le liquide reste horizontal
     beer.style.transform = `rotate(${-gamma * 0.5}deg)`;
 
-    // seuil d'inclinaison (plus de 40° => boire)
+    // Seuil d'inclinaison (plus de 20° => boire)
     const angle = Math.abs(beta);
-    const drinkingNow = angle > 40;
+    const drinkingNow = angle > 20; // Seuil réduit pour plus de sensibilité
 
     if (drinkingNow && beerHeight > 0) {
-      beerHeight -= 0.25; // vitesse du vidage
-      if (beerHeight < 0) beerHeight = 0;
-      beer.style.height = beerHeight + "%";
-      message.textContent = "🍺 Glou glou...";
+        beerHeight -= 0.3; // Vitesse du vidage augmentée pour un effet visible
+        if (beerHeight < 0) beerHeight = 0;
+        beer.style.height = beerHeight + "%";
+        message.textContent = "🍺 Glou glou...";
     } else if (beerHeight <= 0) {
-      message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
+        message.textContent = "Verre vide ! Secoue pour remplir à nouveau 🍻";
     } else if (!drinkingNow) {
-      message.textContent = "Incline ton téléphone pour boire !";
+        message.textContent = "Incline ton téléphone pour boire !";
     }
 
     requestAnimationFrame(animate);
-  }
+    }
+
 
   function handleShake(e) {
     const accel = Math.abs(e.acceleration.x) + Math.abs(e.acceleration.y) + Math.abs(e.acceleration.z);
