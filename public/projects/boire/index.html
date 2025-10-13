@@ -19,6 +19,7 @@
     overflow: hidden;
   }
 
+  /* Le verre */
   .glass {
     position: fixed;
     inset: 0;
@@ -26,6 +27,7 @@
     will-change: transform;
   }
 
+  /* La bière */
   .beer {
     position: absolute;
     bottom: 0;
@@ -33,8 +35,10 @@
     transform: translateX(-50%);
     width: 220vw;
     height: 90vh;
+    min-height: 5vh; /* ✅ empêche le "trou" en bas */
     background: linear-gradient(to top, var(--amber2), var(--amber1));
     transform-origin: 50% 100%;
+    will-change: transform, height;
   }
 
   .foam {
@@ -57,6 +61,7 @@
     }
   }
 
+  /* Interface utilisateur */
   #ui {
     position: fixed;
     inset: 0;
@@ -86,6 +91,7 @@
     font-size: 1.1rem;
     text-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
     margin-bottom: 40px;
+    min-height: 1.2em; /* ✅ garde l’espace visuel constant */
   }
 </style>
 </head>
@@ -99,7 +105,7 @@
 
 <div id="ui">
   <button id="start">🍺 Commencer</button>
-  <div id="status">Secoue pour remplir ton verre</div>
+  <div id="status"></div>
 </div>
 
 <script>
@@ -119,13 +125,11 @@
   const DRAIN_PER_SEC = 0.22;
   const MAX_LIQ_VH = 90;
   const MAX_TILT_VISUAL = 20;
-  const THRESH = -5; // seuil d’inclinaison pour "boire"
+  const THRESH = -5; // angle d’inclinaison (β < -5°)
 
-  // Calculs utilitaires
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const mapLevelToVH = (level) => clamp(level, 0, 1) * MAX_LIQ_VH;
+  const mapLevelToVH = (level) => clamp(level, 0.05, 1) * MAX_LIQ_VH; // ✅ jamais 0
 
-  // Appliquer la rotation visuelle
   function applyVisual() {
     const zTilt = clamp(gammaRel, -MAX_TILT_VISUAL, MAX_TILT_VISUAL);
     glass.style.transform = `rotate(${zTilt}deg)`;
@@ -133,23 +137,22 @@
     beer.style.height = mapLevelToVH(level) + 'vh';
   }
 
-  // Vidage du verre quand on incline
   function drinkLogic(dt) {
     if (betaRel < THRESH && !empty && level > 0) {
       level -= DRAIN_PER_SEC * dt;
-      if (level <= 0) {
-        level = 0;
+      if (level <= 0.01) {
+        level = 0.01;
         empty = true;
-        statusEl.textContent = 'Verre vide ! Secoue pour remplir 🍻';
+        statusEl.textContent = 'Secoue pour remplir ton verre 🍻';
       } else {
         statusEl.textContent = '🍺 Glou glou…';
       }
     } else if (!empty) {
-      statusEl.textContent = 'Incline ton téléphone pour boire 🍺';
+      // pas de message tant que non vide
+      statusEl.textContent = '';
     }
   }
 
-  // Détection de secousse pour re-remplir
   function onShake(e) {
     if (!empty) return;
     const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
@@ -157,11 +160,10 @@
     if (shake > 40) {
       level = 1.0;
       empty = false;
-      statusEl.textContent = 'Verre rempli ! 🍺';
+      statusEl.textContent = '';
     }
   }
 
-  // Demande d’autorisation + capteurs
   async function start() {
     if (typeof DeviceOrientationEvent.requestPermission === "function") {
       try {
@@ -177,7 +179,7 @@
     }
 
     startBtn.style.display = "none";
-    statusEl.textContent = "Incline ton téléphone pour boire 🍻";
+    statusEl.textContent = '';
 
     window.addEventListener("deviceorientation", (e) => {
       beta = e.beta || 0;
