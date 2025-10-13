@@ -115,7 +115,7 @@
     ctx.clearRect(0, 0, width, height);
 
     const midY = height * (1.1 - beerLevel);  // en CSS px
-    const tilt = (gamma - (baseGamma ?? 0)) * 0.02; // inclinaison visuelle après calibration
+    const tilt = -(gamma - (baseGamma ?? 0)) * 0.02; // inclinaison visuelle après calibration
 
     // === Surface du liquide ===
     const wavePoints = [];
