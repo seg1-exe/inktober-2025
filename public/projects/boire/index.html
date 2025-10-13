@@ -46,7 +46,7 @@
   #status {
     color: #fff;
     font-size: 1.1rem;
-    text-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 0 6px rgba(0,0,0,0.4);
     margin-bottom: 40px;
     min-height: 1.2em;
   }
@@ -68,35 +68,54 @@
   const startBtn = document.getElementById('start');
   const statusEl = document.getElementById('status');
 
-  let width, height;
+  // Tailles "logiques" (CSS px) pour dessiner, indépendantes du devicePixelRatio
+  let width = 0, height = 0;
+
+  // Capteurs
   let beta = 0, gamma = 0;
   let baseBeta = null, baseGamma = null;
-  let beerLevel = 0.97; // ✅ verre vraiment plein
+
+  // État liquide
+  let beerLevel = 0.985; // plein à ras bord au démarrage
   let empty = false;
   let time = 0;
   let animationStarted = false;
 
+  // Paramètres
   const DRAIN_RATE = 0.18;
-  const THRESH = 10; // incline vers soi = beta > +10°
-  const MIN_LEVEL = 0.05;
-  const FOAM_HEIGHT = 18; // épaisseur mousse
+  const THRESH = 10;       // incline vers soi = beta > +10°
+  const MIN_LEVEL = 0.05;  // fond résiduel
+  const FOAM_HEIGHT = 18;
   const AMPLITUDE = 8;
   const WAVELENGTH = 80;
 
+  // Utils
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // Resize avec gestion correcte du DPR
   function resize() {
-    width = canvas.width = window.innerWidth * window.devicePixelRatio;
-    height = canvas.height = window.innerHeight * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    // tailles logiques (CSS px) utilisées pour tous les calculs
+    width  = window.innerWidth;
+    height = window.innerHeight;
+
+    // tailles physiques du canvas
+    canvas.width  = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+
+    // réinitialiser toute transform avant de re-scaler (évite l'accumulation)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
   }
 
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => { resize(); drawBeer(); });
   resize();
 
   function drawBeer() {
     ctx.clearRect(0, 0, width, height);
 
-    const midY = height * beerLevel;
-    const tilt = gamma * 0.02;
+    const midY = height * (1.1 - beerLevel);  // en CSS px
+    const tilt = (gamma - (baseGamma ?? 0)) * 0.02; // inclinaison visuelle après calibration
 
     // === Surface du liquide ===
     const wavePoints = [];
@@ -111,6 +130,7 @@
     gradient.addColorStop(0, '#f5a623');
     gradient.addColorStop(1, '#c67c00');
 
+    // Liquide (même forme que la surface)
     ctx.beginPath();
     ctx.moveTo(0, height);
     for (const p of wavePoints) ctx.lineTo(p.x, p.y);
@@ -119,7 +139,7 @@
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    // === Mousse (suit les mêmes vagues) ===
+    // Mousse exactement calée sur la même onde (décalée vers le haut)
     ctx.beginPath();
     for (let i = 0; i < wavePoints.length; i++) {
       const p = wavePoints[i];
@@ -138,15 +158,16 @@
   function loop() {
     time += 0.016;
 
+    // Vidage quand on incline vers soi (après calibration)
     if (baseBeta !== null) {
-      // ✅ vide quand on incline vers soi
-      if (beta - baseBeta > THRESH && !empty && beerLevel > MIN_LEVEL) {
+      if ( (beta - baseBeta) > THRESH && !empty && beerLevel > MIN_LEVEL ) {
         beerLevel -= DRAIN_RATE * 0.016;
-        statusEl.textContent = '🍺 Glou glou…';
         if (beerLevel <= MIN_LEVEL) {
           beerLevel = MIN_LEVEL;
           empty = true;
           statusEl.textContent = 'Secoue pour remplir ton verre 🍻';
+        } else {
+          statusEl.textContent = '🍺 Glou glou…';
         }
       } else if (!empty) {
         statusEl.textContent = '';
@@ -162,7 +183,7 @@
     const a = e.accelerationIncludingGravity || e.acceleration || {x:0,y:0,z:0};
     const shake = Math.abs(a.x) + Math.abs(a.y) + Math.abs(a.z);
     if (shake > 40) {
-      beerLevel = 0.97; // ✅ re-rempli à ras bord
+      beerLevel = 0.985;   // re-remplir à ras bord
       empty = false;
       statusEl.textContent = '';
     }
@@ -188,10 +209,9 @@
     window.addEventListener('deviceorientation', (e) => {
       beta = e.beta || 0;
       gamma = e.gamma || 0;
-      if (baseBeta === null && baseGamma === null) {
-        baseBeta = beta;
-        baseGamma = gamma;
-      }
+      // Calibration à la première valeur reçue
+      if (baseBeta === null)  baseBeta  = beta;
+      if (baseGamma === null) baseGamma = gamma;
     });
 
     window.addEventListener('devicemotion', onShake);
@@ -202,7 +222,7 @@
     }
   }
 
-  // ✅ verre plein dès l’ouverture
+  // ✅ Dessiner un verre plein immédiatement (avant permissions)
   drawBeer();
 
   startBtn.addEventListener('click', start);
