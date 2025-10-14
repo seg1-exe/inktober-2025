@@ -39,3 +39,11 @@ gsap.utils.toArray(".panel").forEach(panel => {
     }
   });
 });
+
+window.addEventListener("load", () => {
+  ScrollTrigger.refresh();
+});
+
+window.addEventListener("orientationchange", () => {
+  setTimeout(() => ScrollTrigger.refresh(), 500);
+});
