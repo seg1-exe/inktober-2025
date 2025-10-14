@@ -1,0 +1,137 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  font-family: "Georgia", serif;
+  background: #000;
+  color: #f3f3f3;
+}
+
+.backgrounds {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.85) contrast(1.1);
+  opacity: 0;
+  transform: scale(1.05);
+  transition: opacity 1.2s ease, transform 3s ease;
+}
+.bg.active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.blur-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  backdrop-filter: blur(1.1px);
+  -webkit-backdrop-filter: blur(1.1px);
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.panel {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8rem 10vw;
+  background: transparent;
+}
+
+.panel:nth-child(even) {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.panel h2 {
+  font-size: 2.8rem;
+  margin-bottom: 1.6rem;
+  line-height: 1.2;
+  text-shadow: 1px 1px 5px rgba(0,0,0,0.6);
+}
+
+.panel p {
+  font-size: 1.25rem;
+  line-height: 1.7;
+  max-width: 600px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+
+/* --- Tablettes --- */
+@media (max-width: 1024px) {
+  .panel {
+    padding: 6rem 8vw;
+  }
+
+  .panel h2 {
+    font-size: 2.2rem;
+  }
+
+  .panel p {
+    font-size: 1.1rem;
+    max-width: 500px;
+    text-align: justify;
+  }
+}
+
+/* --- Mobiles --- */
+@media (max-width: 768px) {
+  .panel {
+    align-items: center !important;
+    text-align: center !important;
+    padding: 5rem 2rem;
+  }
+
+  .panel h2 {
+    font-size: 1.9rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .panel p {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 90%;
+  }
+
+  .blur-overlay {
+    backdrop-filter: blur(1.8px);
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 4rem 1.5rem;
+  }
+
+  .panel h2 {
+    font-size: 1.6rem;
+  }
+
+  .panel p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+}
