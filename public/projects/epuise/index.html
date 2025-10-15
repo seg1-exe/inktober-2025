@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Épuisé — fermeture par ovale + réveil doux</title>
+<style>
+  :root{
+    /* valeurs “ouvert” par défaut (recalibrées en JS selon le ratio) */
+    --rx-open:.34;
+    --ry-open:.18;
+  }
+
+  /* corrige le 100vh mobile (svh/dvh), désactive le scroll élastique */
+  html,body{
+    margin:0;
+    height:100vh;              /* fallback */
+    height:100svh;             /* prend la small viewport height (avec barres visibles) */
+    background:#000;
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  @supports (height: 100dvh){
+    html,body{ height:100dvh; }/* quand les barres disparaissent */
+  }
+
+  /* vidéo plein écran */
+  video{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    z-index:0;
+    transition: filter 1.1s ease-out, opacity 1.1s ease-out;
+    /* iOS inline */
+    -webkit-user-select:none;
+  }
+
+  /* calques */
+  .eyelids{
+    position:fixed; inset:0; z-index:10; pointer-events:none;
+    width:100vw; height:100vh; height:100svh; height:100dvh;
+    display:block;
+  }
+  .eyelids path{ transition: transform 1.1s ease-out; will-change: transform; }
+  #oval-layer{ z-index:15; } /* au-dessus des paupières pour tout noircir */
+  .eyelids:not(#oval-layer){ z-index:10; }
+
+  /* masque ovale : en mode blackout on retire le masque => plein noir */
+  #oval-layer.blackout rect{ mask:none; }
+
+  /* paupières par défaut (ouvertes) */
+  #lidTop   { transform:translateY(-102%); transform-box: fill-box; transform-origin: 50% 0%; }
+  #lidBottom{ transform:translateY(102%);  transform-box: fill-box; transform-origin: 50% 100%; }
+
+  /* halo léger */
+  .glint{
+    position:fixed; inset:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+    z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen;
+    background:radial-gradient(ellipse 28% 12% at 58% 42%, rgba(255,255,255,.14), transparent 60%);
+    transition:opacity .6s ease;
+  }
+  .semi .glint{ opacity:.65; }
+
+  /* -------- Animations paupières -------- */
+  @keyframes blinkTopNatural {
+    0%{transform:translateY(-102%)} 58%{transform:translateY(-8%)} 72%{transform:translateY(-2%)} 84%{transform:translateY(-12%)} 100%{transform:translateY(-102%)}
+  }
+  @keyframes blinkBottomNatural {
+    0%{transform:translateY(102%)} 62%{transform:translateY(10%)} 76%{transform:translateY(2%)} 88%{transform:translateY(14%)} 100%{transform:translateY(102%)}
+  }
+  @keyframes blinkTopSleep {
+    0%{transform:translateY(-102%)} 50%,72%{transform:translateY(0%)} 100%{transform:translateY(-102%)}
+  }
+  @keyframes blinkBottomSleep {
+    0%{transform:translateY(102%)} 54%,76%{transform:translateY(0%)} 100%{transform:translateY(102%)}
+  }
+  .blink  #lidTop{animation:blinkTopNatural var(--blink-dur,1.6s) cubic-bezier(.22,.61,.36,1) 1;}
+  .blink  #lidBottom{animation:blinkBottomNatural calc(var(--blink-dur,1.6s) + .08s) cubic-bezier(.22,.61,.36,1) 1;}
+  .sleepy #lidTop{animation:blinkTopSleep var(--sleep-dur,3.2s) cubic-bezier(.2,.8,.2,1) 1;}
+  .sleepy #lidBottom{animation:blinkBottomSleep calc(var(--sleep-dur,3.2s) + .1s) cubic-bezier(.2,.8,.2,1) 1;}
+
+  /* positions intermédiaires */
+  .drowsy #lidTop    { transform:translateY(-8%) }
+  .drowsy #lidBottom { transform:translateY(10%) }
+  .closed #lidTop    { transform:translateY(0%) !important; }
+  .closed #lidBottom { transform:translateY(0%) !important; }
+
+  /* réveil doux (depuis drowsy) */
+  @keyframes openTop   { 0%{transform:translateY(-8%)} 100%{transform:translateY(-102%)} }
+  @keyframes openBottom{ 0%{transform:translateY(10%)} 100%{transform:translateY(102%)} }
+  .waking #lidTop   { animation: openTop 1.4s cubic-bezier(.22,.61,.36,1) forwards; }
+  .waking #lidBottom{ animation: openBottom 1.4s cubic-bezier(.22,.61,.36,1) forwards; }
+
+  /* accessibilité */
+  @media (prefers-reduced-motion: reduce){
+    video{transition:none}
+    .blink #lidTop,.blink #lidBottom,.sleepy #lidTop,.sleepy #lidBottom,.waking #lidTop,.waking #lidBottom{animation:none}
+  }
+
+  /* tuning mobile : blur plus léger pour batterie/perf */
+  @media (max-width:480px), (max-height:480px){
+    :root{ --rx-open:.31; --ry-open:.19; } /* ovale un poil plus haut sur écrans très étroits/hauts */
+  }
+</style>
+</head>
+<body>
+  <!-- Vidéo HD -->
+  <video id="bg" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="">
+    <source src="./video.mp4" type="video/mp4">
+  </video>
+
+  <!-- Halo cornée -->
+  <div class="glint" aria-hidden="true"></div>
+
+  <!-- Calque ovale (masque) -->
+  <svg id="oval-layer" class="eyelids" aria-hidden="true">
+    <defs>
+      <mask id="ovalMask" maskUnits="objectBoundingBox">
+        <rect x="0" y="0" width="1" height="1" fill="white"/>
+        <ellipse id="ovalHole" cx=".5" cy=".5" rx=".34" ry=".18" fill="black"/>
+      </mask>
+    </defs>
+    <rect x="0" y="0" width="100%" height="100%" fill="#000" mask="url(#ovalMask)"/>
+  </svg>
+
+  <!-- Paupières -->
+  <svg class="eyelids" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <path id="lidTop" fill="#000"
+      d="M 0 0 H 100 V 50 C 75 38, 25 38, 0 50 Z" />
+    <path id="lidBottom" fill="#000"
+      d="M 0 100 H 100 V 50 C 75 62, 25 62, 0 50 Z" />
+  </svg>
+
+<script>
+  const body    = document.body;
+  const video   = document.getElementById('bg');
+  const oval    = document.getElementById('ovalHole');
+  const ovalLay = document.getElementById('oval-layer');
+
+  let ctx, filter;
+  let phase = 0;     // 0 intro, 1 naturel, 2 somnolent, 3 drowsy+ovale, 4 endormi
+  let timers = [];
+
+  /* ---- Responsive helpers ---- */
+  const mqSmall = window.matchMedia("(max-width:480px), (max-height:480px)");
+  let BLUR_SOFT = mqSmall.matches ? 2 : 3;
+  let BLUR_STRONG = mqSmall.matches ? 4 : 6;
+
+  const OVAL = { rx: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rx-open')) || 0.34,
+                 ry: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ry-open')) || 0.18 };
+
+  function updateOvalForAspect(){
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    const ar = w / h; // >1 = paysage
+
+    // petits ajustements pour que l'oval “regarde” bien selon le ratio
+    if (ar < 0.6){       OVAL.rx = 0.28; OVAL.ry = 0.21; }
+    else if (ar < 0.8){  OVAL.rx = 0.31; OVAL.ry = 0.19; }
+    else if (ar > 1.9){  OVAL.rx = 0.38; OVAL.ry = 0.16; }
+    else {               OVAL.rx = 0.34; OVAL.ry = 0.18; }
+  }
+
+  mqSmall.addEventListener?.('change', e=>{
+    BLUR_SOFT  = e.matches ? 2 : 3;
+    BLUR_STRONG= e.matches ? 4 : 6;
+  });
+
+  window.addEventListener('resize', updateOvalForAspect, { passive:true });
+  window.addEventListener('orientationchange', updateOvalForAspect);
+
+  /* ---- Audio ---- */
+  function setupAudio(){
+    if(ctx) return;
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const src = ctx.createMediaElementSource(video);
+      filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 20000;
+      src.connect(filter).connect(ctx.destination);
+      ctx.resume();
+    }catch(e){ /* no-op: vieux navigateurs */ }
+  }
+
+  function clearTimers(){ timers.forEach(t=>clearTimeout(t)); timers=[]; }
+  const rand = (a,b)=>Math.random()*(b-a)+a;
+
+  /* -------- Clignements -------- */
+  function blinkNatural(){
+    const dur = rand(1.3,1.9).toFixed(2)+'s';
+    body.style.setProperty('--blink-dur', dur);
+    body.classList.add('blink','semi');
+    setTimeout(()=>{ body.classList.remove('blink','semi'); }, parseFloat(dur)*1000 + 40);
+  }
+
+  function blinkSleepy(){
+    const durS = rand(2.8,3.6).toFixed(2);
+    const dur = parseFloat(durS)*1000;
+    body.style.setProperty('--sleep-dur', durS+'s');
+    body.classList.add('sleepy','semi');
+
+    // BLUR/SON uniquement en fermeture, puis retrait en réouverture
+    setTimeout(()=>{
+      video.style.filter = `blur(${BLUR_SOFT}px) brightness(.85)`;
+      if(filter) filter.frequency.linearRampToValueAtTime(1200, ctx.currentTime+0.5);
+      video.volume = 0.65;
+    }, dur*0.45);
+
+    setTimeout(()=>{
+      video.style.filter = `blur(${BLUR_STRONG}px) brightness(.72)`;
+      if(filter) filter.frequency.linearRampToValueAtTime(800, ctx.currentTime+0.5);
+      video.volume = 0.5;
+    }, dur*0.60);
+
+    setTimeout(()=>{
+      video.style.filter = `blur(${BLUR_SOFT}px) brightness(.85)`;
+      if(filter) filter.frequency.linearRampToValueAtTime(2000, ctx.currentTime+0.6);
+      video.volume = 0.75;
+    }, dur*0.82);
+
+    setTimeout(()=>{
+      video.style.filter = 'none';
+      if(filter) filter.frequency.linearRampToValueAtTime(20000, ctx.currentTime+0.8);
+      video.volume = 1.0;
+    }, dur*0.97);
+
+    setTimeout(()=>{ body.classList.remove('sleepy','semi'); }, dur + 60);
+  }
+
+  /* -------- Phases -------- */
+  function naturalPhase(ms=5000){
+    const end = performance.now() + ms;
+    const loop = () => {
+      if(performance.now()>end || phase!==1) return;
+      blinkNatural();
+      timers.push(setTimeout(loop, rand(1200,1800)));
+    };
+    blinkNatural();
+    timers.push(setTimeout(loop, 400));
+  }
+
+  function sleepyPhase(ms=5000){
+    const end = performance.now() + ms;
+    const loop = () => {
+      if(performance.now()>end || phase!==2) return;
+      blinkSleepy();
+      timers.push(setTimeout(loop, rand(1600,2200)));
+    };
+    blinkSleepy();
+    timers.push(setTimeout(loop, 900));
+  }
+
+  // Phase finale : l'ovale noir grandit depuis les bords pour tout recouvrir
+  function finalOvalClosing() {
+    phase = 3;
+    ovalLay.style.display = 'block';
+    body.classList.add('drowsy');
+
+    animateOval(
+      { rxFrom: OVAL.rx, ryFrom: OVAL.ry, rxTo: 0, ryTo: 0, dur: 1400, ease: 'ease-out' },
+      () => {
+        // trou fermé => plein noir garanti
+        ovalLay.classList.add('blackout');
+        body.classList.add('closed');
+        body.classList.remove('drowsy');
+
+        // économie batterie en sommeil
+        try{ video.pause(); }catch{}
+        setTimeout(() => { goSleep(); }, 600);
+      }
+    );
+
+    if (filter) filter.frequency.linearRampToValueAtTime(400, ctx.currentTime + 1.4);
+    video.volume = 0.25;
+  }
+
+  function goSleep() {
+    phase = 4;
+    // on garde la couche ovale affichée et en blackout (plein noir)
+    if (filter) filter.frequency.linearRampToValueAtTime(350, ctx.currentTime + 0.3);
+    video.volume = 0.0;
+  }
+
+  // Réveil : ré-ouvre le trou (agrandit l'ellipse) puis ouvre les paupières
+  async function wakeUp() {
+    if (phase !== 4) return;
+    body.classList.remove('blink','sleepy','semi');
+
+    // on redevient "masqué avec trou"
+    ovalLay.classList.remove('blackout');
+    ovalLay.style.display = 'block';
+    oval.setAttribute('rx', '0');
+    oval.setAttribute('ry', '0');
+
+    // relance vidéo (iOS nécessite parfois un play explicite)
+    try{ await video.play(); }catch{}
+
+    animateOval(
+      { rxFrom: 0, ryFrom: 0, rxTo: OVAL.rx, ryTo: OVAL.ry, dur: 1200, ease: 'ease-out' },
+      () => {
+        body.classList.remove('closed');
+        body.classList.add('waking');
+        if (filter) filter.frequency.linearRampToValueAtTime(20000, ctx.currentTime + 1.2);
+        video.volume = 1;
+
+        // petit délai : on cache la couche et on repart
+        setTimeout(() => {
+          body.classList.remove('waking','drowsy');
+          ovalLay.style.display = 'none';
+          startSequence();
+        }, 1400);
+      }
+    );
+  }
+
+  /* -------- Animation de l'ovalie (ellipse rx/ry) -------- */
+  function animateOval({rxFrom, ryFrom, rxTo, ryTo, dur=1000, ease='linear'}, done){
+    const start = performance.now();
+    const easeFn = (t)=>{
+      if(ease==='ease-out') return 1 - Math.pow(1-t,3);
+      if(ease==='ease-in')  return Math.pow(t,3);
+      return t;
+    };
+    rxFrom = clamp(rxFrom,0,0.5); ryFrom = clamp(ryFrom,0,0.5);
+    rxTo   = clamp(rxTo,0,0.5);   ryTo   = clamp(ryTo,0,0.5);
+
+    function step(now){
+      let t = (now - start)/dur;
+      if(t>1) t=1;
+      const k = easeFn(t);
+      const rx = rxFrom + (rxTo - rxFrom)*k;
+      const ry = ryFrom + (ryTo - ryFrom)*k;
+      oval.setAttribute('rx', rx.toFixed(8));
+      oval.setAttribute('ry', ry.toFixed(8));
+      if(t<1){ requestAnimationFrame(step); }
+      else if (typeof done==='function'){ done(); }
+    }
+    requestAnimationFrame(step);
+  }
+  const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+
+  /* -------- Démarrage séquence -------- */
+  function startSequence(){
+    setupAudio();
+    clearTimers();
+    phase = 0;
+
+    updateOvalForAspect();
+    oval.setAttribute('rx', String(OVAL.rx));
+    oval.setAttribute('ry', String(OVAL.ry));
+    ovalLay.classList.remove('blackout');
+    ovalLay.style.display = 'none';
+
+    // 0–5s : vidéo seule
+    timers.push(setTimeout(()=>{
+      phase = 1;                // 5–10s naturels
+      naturalPhase(5000);
+      timers.push(setTimeout(()=>{
+        phase = 2;              // 10–15s somnolents (fermeture + blur)
+        sleepyPhase(5000);
+        timers.push(setTimeout(()=>finalOvalClosing(), 5000)); // 15s+ fermeture par ovale
+      }, 5000));
+    }, 5000));
+  }
+
+  // réveil sur interaction
+  ['mousemove','touchstart','pointerdown','keydown','click'].forEach(e=>window.addEventListener(e,wakeUp,{passive:true}));
+
+  // économise quand l’onglet est caché
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){
+      try{ video.pause(); }catch{}
+    }else if(phase!==4){
+      video.play?.().catch(()=>{});
+    }
+  });
+
+  startSequence();
+</script>
+</body>
+</html>
