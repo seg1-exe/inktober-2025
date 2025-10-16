@@ -83,6 +83,135 @@
     text-decoration: underline;
 }
 
+#filters {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2rem;
+  padding: 1rem 0;
+}
+
+#filters label {
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 1rem;
+}
+
+#filters select {
+  background: #000;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 5px;
+  padding: 0.4rem 0.8rem;
+}
+
+.day-project .tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 5px;
+  background: #111;
+  color: #bbb;
+  border: 1px solid #222;
+}
+
+#filters {
+display: flex;
+flex-wrap: wrap;
+justify-content: center;
+align-items: center;
+gap: 1rem;
+padding: 1rem;
+}
+
+#filters label,
+#filters input,
+#filters select,
+#filters button {
+color: #fff;
+font-family: system-ui, sans-serif;
+font-size: 1rem;
+}
+
+#filters select,
+#filters input {
+background: #000;
+border: 1px solid #444;
+border-radius: 5px;
+padding: 0.4rem 0.8rem;
+}
+
+#filters button {
+background: #111;
+border: 1px solid #444;
+border-radius: 6px;
+padding: 0.4rem 0.8rem;
+cursor: pointer;
+transition: background 0.2s;
+}
+
+#filters button:hover {
+background: #222;
+}
+
+/* --- TAGS --- */
+.day-project .tag {
+display: inline-block;
+margin-top: 10px;
+padding: 4px 10px;
+font-size: 0.8rem;
+border-radius: 5px;
+background: #111;
+color: #bbb;
+border: 1px solid #222;
+}
+
+/* --- VUE LISTE --- */
+#gallery.list-view {
+flex-direction: column;
+align-items: center;
+}
+
+#gallery.list-view .day-project {
+width: 90%;
+display: flex;
+align-items: center;
+gap: 2rem;
+margin-top: 15px;
+}
+
+#gallery.list-view .day-project img {
+width: 150px;
+flex-shrink: 0;
+margin: 0;
+}
+
+#gallery.list-view .day-project h1 {
+font-size: 1.4rem;
+margin-bottom: 0.4rem;
+}
+
+#gallery.list-view .day-project p {
+margin: 0;
+}
+
+#gallery.list-view .day-project .tag {
+margin-top: 0.5rem;
+}
+
+@media screen and (max-width: 768px) {
+#gallery.list-view .day-project {
+    flex-direction: column;
+    text-align: center;
+}
+
+#gallery.list-view .day-project img {
+    width: 100%;
+}
+}
+
+
 @media screen and (max-width: 1200px) {
     #gallery {
         padding: 3rem 5rem;

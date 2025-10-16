@@ -1,121 +1,229 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="" />
-    <link rel="stylesheet" href="/reset.css" />
-    <link rel="stylesheet" href="/style.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inktober 2025</title>
+    <link rel="stylesheet" href="/reset.css" />
+    <link rel="stylesheet" href="/style.css" />
+
   </head>
   <body>
     <div id="app">
       <header>
         <h1>Inktober 2025</h1>
       </header>
+
+      <!-- BARRE DE TRI -->
+      <section id="filters">
+        <label>
+          Type :
+          <select id="filter-type">
+            <option value="all">Tous</option>
+            <option value="Jeux">Jeux</option>
+            <option value="Exp. visuelle">Exp. visuelle</option>
+            <option value="Exp. intéractive">Exp. intéractive</option>
+          </select>
+        </label>
+
+        <label>
+          Date :
+          <select id="sort-date">
+            <option value="asc">Inktober ↑</option>
+            <option value="desc">Inktober ↓</option>
+          </select>
+        </label>
+
+        <label>
+          Recherche :
+          <input
+            type="text"
+            id="search"
+            placeholder="Rechercher un projet..."
+          />
+        </label>
+
+        <button id="toggle-view">Vue : Grille</button>
+      </section>
+
       <main>
         <div id="gallery">
-          <a class="day-project" href="/projects/moustache/index.html">
+          <a class="day-project" href="/projects/moustache/index.html" data-day="1" data-type="Exp. visuelle">
             <img src="/images/moustache.png" alt="Jour 1 : Moustache" />
             <h1>Jour 1 : Moustache</h1>
             <p>Mémorial en l'honneur de Moustache</p>
+            <span class="tag">Exp. visuelle</span>
           </a>
 
-          <a class="day-project" href="/projects/tisser/index.html">
+          <a class="day-project" href="/projects/tisser/index.html" data-day="2" data-type="Exp. intéractive">
             <img src="/images/tisser.png" alt="Jour 2 : Tisser" />
             <h1>Jour 2 : Tisser</h1>
             <p>Tisse ta toile</p>
+            <span class="tag">Exp. intéractive</span>
           </a>
 
-          <a class="day-project" href="/projects/couronne/index.html">
+          <a class="day-project" href="/projects/couronne/index.html" data-day="3" data-type="Exp. visuelle">
             <img src="/images/couronne.png" alt="Jour 3 : Couronne" />
             <h1>Jour 3 : Couronne</h1>
             <p>Nouveau sacre</p>
+            <span class="tag">Exp. visuelle</span>
           </a>
 
-          <a class="day-project" href="/projects/troubles/index.html">
+          <a class="day-project" href="/projects/troubles/index.html" data-day="4" data-type="Exp. visuelle">
             <img src="/images/troubles.gif" alt="Jour 4 : Troubles" />
             <h1>Jour 4 : Troubles</h1>
             <p>No drugs kids</p>
+            <span class="tag">Exp. visuelle</span>
           </a>
 
-          <a class="day-project" href="/projects/cerf/index.html">
+          <a class="day-project" href="/projects/cerf/index.html" data-day="5" data-type="Jeux">
             <img src="/images/cerf.png" alt="Jour 5 : Cerf" />
             <h1>Jour 5 : Cerf</h1>
             <p>Le cerf agile</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/percer/index.html">
+          <a class="day-project" href="/projects/percer/index.html" data-day="6" data-type="Exp. visuelle, Exp. intéractive">
             <img src="/images/percer.png" alt="Jour 6 : Percer" />
             <h1>Jour 6 : Percer</h1>
             <p>Perce le mur du son</p>
+            <span class="tag">Exp. visuelle & intéractive</span>
           </a>
 
-          <a class="day-project" href="/projects/etoile/index.html">
+          <a class="day-project" href="/projects/etoile/index.html" data-day="7" data-type="Jeux">
             <img src="/images/etoile.png" alt="Jour 7 : Étoile de mer" />
             <h1>Jour 7 : Étoile de mer</h1>
             <p>Créé ton aquarium</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/imprudent/index.html">
+          <a class="day-project" href="/projects/imprudent/index.html" data-day="8" data-type="Jeux">
             <img src="/images/imprudent.png" alt="Jour 8 : Imprudent" />
             <h1>Jour 8 : Imprudent</h1>
             <p>T'es imprudent ? Esquive maintenant</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/lourd/index.html">
+          <a class="day-project" href="/projects/lourd/index.html" data-day="9" data-type="Exp. visuelle, Exp. intéractive">
             <img src="/images/lourd.png" alt="Jour 9 : Lourd" />
             <h1>Jour 9 : Lourd</h1>
             <p>C'est lourd ça</p>
+            <span class="tag">Exp. visuelle & intéractive</span>
           </a>
 
-          <a class="day-project" href="/projects/balayer/index.html">
+          <a class="day-project" href="/projects/balayer/index.html" data-day="10" data-type="Jeux">
             <img src="/images/balayer.png" alt="Jour 10 : Balayer" />
             <h1>Jour 10 : Balayer</h1>
             <p>Exprime ton potentiel à la caligraphie</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/piqure/index.html">
+          <a class="day-project" href="/projects/piqure/index.html" data-day="11" data-type="Jeux">
             <img src="/images/piqure.png" alt="Jour 11 : Piqûre" />
             <h1>Jour 11 : Piqûre</h1>
             <p>Écrase les tous</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/dechire/index.html">
+          <a class="day-project" href="/projects/dechire/index.html" data-day="12" data-type="Jeux">
             <img src="/images/dechire.png" alt="Jour 12 : Déchiré" />
             <h1>Jour 12 : Déchiré</h1>
             <p>Reconstitue le</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/boire/index.html">
+          <a class="day-project" href="/projects/boire/index.html" data-day="13" data-type="Jeux">
             <img src="/images/boire.png" alt="Jour 13 : Boire" />
             <h1>Jour 13 : Boire</h1>
             <p>Comme à l'ancienne</p>
+            <span class="tag">Jeux</span>
           </a>
 
-          <a class="day-project" href="/projects/tronc/index.html">
+          <a class="day-project" href="/projects/tronc/index.html" data-day="14" data-type="Exp. visuelle, Exp. intéractive">
             <img src="/images/tronc.png" alt="Jour 14 : Tronc" />
             <h1>Jour 14 : Tronc</h1>
             <p>Sensibilisation à la déforestation</p>
+            <span class="tag">Exp. visuelle & intéractive</span>
           </a>
 
-          <a class="day-project" href="/projects/epuise/index.html">
+          <a class="day-project" href="/projects/epuise/index.html" data-day="15" data-type="Exp. visuelle, Exp. intéractive">
             <img src="/images/epuise.png" alt="Jour 15 : Epuisé" />
             <h1>Jour 15 : Epuisé</h1>
             <p>Je n'arrive pas à garder les yeux ouverts</p>
+            <span class="tag">Exp. visuelle & intéractive</span>
           </a>
 
-          <a class="day-project" href="/projects/erreur/index.html">
+          <a class="day-project" href="/projects/erreur/index.html" data-day="16" data-type="Exp. visuelle, Exp. intéractive">
             <img src="/images/erreur.png" alt="Jour 16 : Erreur" />
             <h1>Jour 16 : Erreur</h1>
             <p>Ça me rappelle mon portfolio</p>
+            <span class="tag">Exp. visuelle & intéractive</span>
           </a>
         </div>
       </main>
+
       <footer>
         <p>Réalisé par <a href="https://www.instagram.com/arthur__gllr/">seg1</a>.</p>
       </footer>
     </div>
+
     <script type="module" src="/main.js"></script>
+
+    <!-- SCRIPT TRI -->
+    <script>
+      const gallery = document.getElementById("gallery");
+      const projects = Array.from(gallery.querySelectorAll(".day-project"));
+      const filterType = document.getElementById("filter-type");
+      const sortDate = document.getElementById("sort-date");
+      const searchInput = document.getElementById("search");
+      const toggleViewBtn = document.getElementById("toggle-view");
+
+      let isListView = false;
+
+      function renderProjects(list) {
+        gallery.innerHTML = "";
+        list.forEach((p) => gallery.appendChild(p));
+      }
+
+      function applyFilters() {
+        const selectedType = filterType.value.toLowerCase();
+        const sortOrder = sortDate.value;
+        const query = searchInput.value.toLowerCase();
+
+        let filtered = projects.filter((p) => {
+          const type = p.dataset.type.toLowerCase();
+          const text =
+            p.textContent.toLowerCase() +
+            " " +
+            p.getAttribute("href").toLowerCase();
+          const matchType =
+            selectedType === "all" || type.includes(selectedType);
+          const matchSearch = text.includes(query);
+          return matchType && matchSearch;
+        });
+
+        filtered.sort((a, b) => {
+          const dayA = parseInt(a.dataset.day);
+          const dayB = parseInt(b.dataset.day);
+          return sortOrder === "asc" ? dayA - dayB : dayB - dayA;
+        });
+
+        renderProjects(filtered);
+      }
+
+      // listeners
+      filterType.addEventListener("change", applyFilters);
+      sortDate.addEventListener("change", applyFilters);
+      searchInput.addEventListener("input", applyFilters);
+
+      // Toggle vue grille / liste
+      toggleViewBtn.addEventListener("click", () => {
+        isListView = !isListView;
+        gallery.classList.toggle("list-view", isListView);
+        toggleViewBtn.textContent = isListView ? "Vue : Liste" : "Vue : Grille";
+      });
+
+      applyFilters(); // init
+    </script>
   </body>
 </html>
