@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Inktober 2025 - Jour 18</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: radial-gradient(120% 100% at 50% 20%, #0e7a2e 0%, #095d22 35%, #053716 70%, #031d0c 100%);
+      font-family: system-ui, -apple-system, sans-serif;
+      height: 100vh;
+      position: relative;
+    }
+
+    #board {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    /* Dimensions de carte réaliste */
+    :root {
+      --card-width: 70px;
+      --card-height: 98px;
+      --card-radius: 8px;
+    }
+
+    .card {
+      position: absolute;
+      top: -120px;
+      width: var(--card-width);
+      height: var(--card-height);
+      perspective: 1000px;
+      animation: fall var(--duration) linear forwards;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateX(var(--x0)) translateY(-120px) rotate(var(--rot-start));
+      }
+      100% {
+        transform: translateX(calc(var(--x0) + var(--dx))) translateY(calc(100vh + 150px)) rotate(var(--rot-end));
+      }
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      transition: transform 0.6s ease;
+    }
+
+    .card-inner.face-down {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: var(--card-radius);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .front {
+      background: white;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      padding: 6px;
+      border: 1px solid #ddd;
+    }
+
+    .back {
+      transform: rotateY(180deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .back-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+
+    .corner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+      font-weight: bold;
+    }
+
+    .corner.tl {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+    }
+
+    .corner.br {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      transform: rotate(180deg);
+    }
+
+    .rank {
+      font-size: 16px;
+    }
+
+    .suit {
+      font-size: 14px;
+      margin-top: -2px;
+    }
+
+    .center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      opacity: 0.15;
+    }
+
+    /* Interface de contrôle */
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px 25px;
+      border-radius: 12px;
+      color: white;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      pointer-events: auto;
+    }
+
+    .controls h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .controls p {
+      font-size: 13px;
+      opacity: 0.8;
+      margin: 4px 0;
+    }
+
+    .controls kbd {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="board"></div>
+
+  <script>
+    // ———————————— Utilitaires ————————————
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const choice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    // Jeu de 52 cartes
+    const SUITS = [
+      { name: 'spades',   symbol: '♠', ink: '#121212' },
+      { name: 'hearts',   symbol: '♥', ink: '#cc1122' },
+      { name: 'diamonds', symbol: '♦', ink: '#cc1122' },
+      { name: 'clubs',    symbol: '♣', ink: '#121212' },
+    ];
+    const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+    // Images de dos de cartes (patterns SVG intégrés pour éviter les problèmes de chemin)
+    const BACK_PATTERNS = [
+        'rouge.png',
+        'bleu.png',
+    ];
+
+    function buildDeck() {
+      const d = [];
+      for (const s of SUITS) {
+        for (const r of RANKS) d.push({ rank: r, suit: s });
+      }
+      return d;
+    }
+
+    function properShuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function* infiniteDealer() {
+      let deck = properShuffle(buildDeck());
+      let idx = 0;
+      while (true) {
+        yield deck[idx++];
+        if (idx >= deck.length) { 
+          deck = properShuffle(buildDeck()); 
+          idx = 0; 
+        }
+      }
+    }
+
+    const dealer = infiniteDealer();
+    const board = document.getElementById('board');
+
+    // Réglages (vitesse de chute légèrement augmentée)
+    const settings = {
+      spawnEvery: 220,
+      minFall: 5000,     // Réduit de 6000 → 5000
+      maxFall: 10000,    // Réduit de 12000 → 10000
+      minFlipFrac: 0.18,
+      maxFlipFrac: 0.88,
+    };
+
+    function createCardEl(card) {
+      const el = document.createElement('div');
+      el.className = 'card';
+
+      const duration = rand(settings.minFall, settings.maxFall);
+      const dx = rand(-24, 24);
+      const rotStart = rand(-24, 24);
+      const rotEnd = rotStart + rand(-30, 30);
+
+      el.style.setProperty('--duration', duration + 'ms');
+      el.style.setProperty('--x0', 'calc(50vw - var(--card-width) / 2)');
+      el.style.setProperty('--dx', dx + 'vw');
+      el.style.setProperty('--rot-start', rotStart + 'deg');
+      el.style.setProperty('--rot-end', rotEnd + 'deg');
+
+      const inner = document.createElement('div');
+      inner.className = 'card-inner face-down';
+
+      // Face avant
+      const front = document.createElement('div');
+      front.className = 'card-face front';
+      front.style.setProperty('--ink', card.suit.ink);
+
+      const tl = document.createElement('div');
+      tl.className = 'corner tl';
+      tl.innerHTML = `<span class="rank">${card.rank}</span><span class="suit">${card.suit.symbol}</span>`;
+
+      const br = document.createElement('div');
+      br.className = 'corner br';
+      br.innerHTML = `<span class="rank">${card.rank}</span><span class="suit">${card.suit.symbol}</span>`;
+
+      const center = document.createElement('div');
+      center.className = 'center';
+      center.textContent = card.suit.symbol;
+
+      front.appendChild(tl);
+      front.appendChild(center);
+      front.appendChild(br);
+
+      // Face arrière
+      const back = document.createElement('div');
+      back.className = 'card-face back';
+      const backImg = document.createElement('img');
+      backImg.className = 'back-img';
+      backImg.alt = '';
+      backImg.src = choice(BACK_PATTERNS);
+      back.appendChild(backImg);
+
+      inner.appendChild(front);
+      inner.appendChild(back);
+      el.appendChild(inner);
+
+      // Retirer la carte après l'animation (elle est maintenant hors écran)
+      el.addEventListener('animationend', () => el.remove());
+
+      // Retourner la carte à un moment aléatoire
+      const flipAt = rand(settings.minFlipFrac, settings.maxFlipFrac);
+      setTimeout(() => inner.classList.remove('face-down'), duration * flipAt);
+
+      return el;
+    }
+
+    let spawnTimer = null;
+
+    function start() {
+      if (spawnTimer) return;
+      spawnTimer = setInterval(() => {
+        const card = dealer.next().value;
+        board.appendChild(createCardEl(card));
+      }, settings.spawnEvery);
+    }
+
+    function stop() { 
+      clearInterval(spawnTimer); 
+      spawnTimer = null; 
+    }
+
+    // Pause quand l'onglet n'est pas visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stop(); else start();
+    });
+
+    // Démarrage automatique
+    start();
+  </script>
+</body>
+</html>

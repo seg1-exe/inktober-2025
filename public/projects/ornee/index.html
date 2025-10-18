@@ -62,13 +62,13 @@
     button.primary{border-color:#184254; background:linear-gradient(180deg,#0e2a34,#0c2230)}
     .hint{color:var(--muted); font-size:12px}
 
-    /* Affichages conditionnels */
+    /* Conteneurs pour basculer Zellige/Girih (couleurs) */
     [data-hide="true"]{ display:none !important; }
 
     main{ min-height:0; padding-bottom: env(safe-area-inset-bottom); }
     svg{ display:block; width:100%; height:100%; }
 
-    /* Mobile : cibles plus hautes, tout en gardant le style desktop */
+    /* Mobile : un peu plus de hauteur de cibles tactiles, sans compacter desktop */
     @media (max-width: 720px){
       select,button,input[type="range"],input[type="number"],input[type="text"],input[type="color"]{
         min-height:42px; font-size:13px;
@@ -104,7 +104,7 @@
         <input id="complexRange" type="range" min="1" max="5" step="1" value="3">
       </label>
 
-      <!-- Zellige : deux color pickers (damier) -->
+      <!-- Couleurs Zellige : deux color pickers (damier) -->
       <div id="zelligeColors">
         <label>Couleur A
           <input id="colA" type="color" value="#22d3ee">
@@ -114,13 +114,8 @@
         </label>
       </div>
 
-      <!-- Girih : 4 color pickers (remplace la liste) -->
-      <div id="girihColors">
-        <label>C1 <input id="g1" type="color" value="#22d3ee"></label>
-        <label>C2 <input id="g2" type="color" value="#0e7490"></label>
-        <label>C3 <input id="g3" type="color" value="#164e63"></label>
-        <label>C4 <input id="g4" type="color" value="#083344"></label>
-      </div>
+      <!-- Palette Girih (gardée) -->
+      <div id="girihPalette" class="row" style="gap:6px"></div>
 
       <label class="row" style="gap:6px">
         <input type="checkbox" id="goldChk" checked> Dorure
@@ -129,9 +124,8 @@
       <label>Seed
         <input id="seedInput" type="text" value="12345" style="width:120px" inputmode="numeric">
       </label>
-      <button id="randSeed" title="Seed aléatoire">🎲</button>
+      <button id="randSeed" title="Seed aléatoire">Générer</button>
 
-      <span class="hint" aria-hidden="true">Astuce : sur mobile, les contrôles passent sur plusieurs lignes.</span>
     </div>
   </header>
 
@@ -157,6 +151,12 @@
 
 <script>
   // ===== Utilities =====
+  const PALETTES = [
+    ["#0e7490", "#22d3ee", "#164e63", "#083344"], // azur
+    ["#b45309", "#f59e0b", "#fde68a", "#92400e"], // ambre
+    ["#15803d", "#4ade80", "#064e3b", "#065f46"], // émeraude
+    ["#7c3aed", "#c4b5fd", "#4c1d95", "#2e1065"], // pourpre
+  ];
   const $ = s => document.querySelector(s);
   const stage = $('#stage');
   const gTiles = $('#tiles');
@@ -188,7 +188,7 @@
   function decagonPoints(cx, cy, R, rot=0){ return Array.from({length:10}, (_,i)=>{ const a=rot + i*36*DEG; return [cx+Math.cos(a)*R, cy+Math.sin(a)*R]; }); }
   function pathFromPoints(pts){ return 'M '+pts.map(p=>p[0]+','+p[1]).join(' L ')+' Z'; }
 
-  // ===== Controls =====
+  // ===== State & Controls =====
   const modeSel = $('#modeSel');
   const sizeRange = $('#sizeRange');
   const complexRange = $('#complexRange');
@@ -198,18 +198,33 @@
   const exportBtn = $('#exportBtn');
   const toggleBtn = $('#toggleControls');
 
-  // Color pickers
   const colAInput = $('#colA');
   const colBInput = $('#colB');
   const zelligeColors = $('#zelligeColors');
+  const girihPaletteWrap = $('#girihPalette');
 
-  const girihColors = $('#girihColors');
-  const g1 = $('#g1'), g2 = $('#g2'), g3 = $('#g3'), g4 = $('#g4');
+  let palette = PALETTES[0];
+
+  function buildGirihPalette(){
+    girihPaletteWrap.innerHTML='';
+    PALETTES.forEach(pal=>{
+      const group = document.createElement('div');
+      group.style.display='flex'; group.style.gap='6px'; group.style.alignItems='center';
+      pal.forEach(c=>{
+        const b = document.createElement('button');
+        b.style.width='22px'; b.style.height='22px'; b.style.borderRadius='6px';
+        b.style.border='1px solid #ffffff22'; b.style.background=c; b.title=c;
+        b.addEventListener('click', ()=>{ palette=pal; generate(); }, {passive:true});
+        group.appendChild(b);
+      });
+      girihPaletteWrap.appendChild(group);
+    });
+  }
 
   function updateColorUI(){
-    const isZellige = modeSel.value === 'zellige';
-    zelligeColors.setAttribute('data-hide', isZellige ? 'false' : 'true');
-    girihColors.setAttribute('data-hide', isZellige ? 'true' : 'false');
+    const zellige = modeSel.value === 'zellige';
+    zelligeColors.setAttribute('data-hide', zellige ? 'false' : 'true');
+    girihPaletteWrap.setAttribute('data-hide', zellige ? 'true' : 'false');
   }
 
   // Toggle contrôles
@@ -236,9 +251,7 @@
       const colB = colBInput.value;
       generateZellige({size, complexity, gold, rng, colA, colB});
     } else {
-      // Palette Girih = 4 pickers
-      const palette = [g1.value, g2.value, g3.value, g4.value];
-      generateGirih({size, complexity, gold, rng, palette});
+      generateGirih({size, complexity, gold, rng});
     }
   }
 
@@ -276,8 +289,8 @@
     }
   }
 
-  // ---- Girih (palette depuis color pickers)
-  function generateGirih({size, complexity, gold, rng, palette}){
+  // ---- Girih (palette conservée)
+  function generateGirih({size, complexity, gold, rng}){
     const vb = stage.viewBox.baseVal;
     const base = size; // rayon de base
     const rings = Math.max(1, Math.min(4, complexity));
@@ -290,12 +303,12 @@
         if(rng() < 0.08) continue;
         const jx = (rng()*2-1)*jitter; const jy = (rng()*2-1)*jitter;
         const rot = Math.floor(rng()*10)*rotSnap;
-        drawRosette(x+jx, y+jy, base, rings, rot, gold, rng, palette);
+        drawRosette(x+jx, y+jy, base, rings, rot, gold, rng);
       }
     }
   }
 
-  function drawRosette(cx, cy, base, rings, rot, gold, rng, palette){
+  function drawRosette(cx, cy, base, rings, rot, gold, rng){
     const R1 = base, pts1 = decagonPoints(cx, cy, R1, rot);
     addPath(pathFromPoints(pts1), randChoice(rng, palette), gold);
 
@@ -327,19 +340,17 @@
   function randomizeSeed(){ seedInput.value = Math.floor(Math.random()*1e9).toString(36); }
 
   exportBtn.addEventListener('click', exportSVG, {passive:true});
-  randSeedBtn.addEventListener('click', ()=>{ randomizeSeed(); generate(); }, {passive:true});
-
+  document.getElementById('randSeed').addEventListener('click', ()=>{ randomizeSeed(); generate(); }, {passive:true});
   modeSel.addEventListener('change', ()=>{ updateColorUI(); generate(); }, {passive:true});
   sizeRange.addEventListener('input', generate, {passive:true});
   complexRange.addEventListener('input', generate, {passive:true});
   goldChk.addEventListener('change', generate, {passive:true});
-
-  // Color pickers live
   colAInput.addEventListener('input', generate, {passive:true});
   colBInput.addEventListener('input', generate, {passive:true});
-  [g1,g2,g3,g4].forEach(inp=> inp.addEventListener('input', generate, {passive:true}));
+  seedInput.addEventListener('change', generate, {passive:true});
 
   // Init
+  buildGirihPalette();
   updateColorUI();
   generate();
 </script>
