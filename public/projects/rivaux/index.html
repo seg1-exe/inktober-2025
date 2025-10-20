@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0d12" />
+<title>Rivaux — Duel (timer + fin)</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#0e1420; --border:#1b2133;
+    --player:#58e6c2; --ai:#ff6b91; --ui:#d6def8;
+    --boost:#ffe27a; --zone:#82b7ff; --neutral:#131a2b;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--ui);
+    font:500 16px/1.4 system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif;
+    background:var(--bg);
+    display:grid; place-items:center;
+  }
+  .app{ width:min(1000px, 100vw); padding:16px; display:grid; gap:14px; }
+
+  header{ display:grid; gap:6px; text-align:center; }
+  h1{ margin:0; font-size:clamp(22px,4vw,28px); letter-spacing:.2px }
+  .sub{ opacity:.9; font-size:clamp(12px,2.8vw,14px) }
+
+  .hud{ display:grid; gap:8px; }
+  .bar{ position:relative; height:12px; border-radius:999px; overflow:hidden; background:#0c1120; outline:1px solid var(--border); box-shadow:0 8px 28px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04); }
+  .fill-ai,.fill-player{ position:absolute; inset-block:0; width:0% }
+  .fill-ai{ left:0;  background:rgba(255,107,145,.8); filter:drop-shadow(0 0 6px rgba(255,107,145,.35)); }
+  .fill-player{ right:0; background:rgba(88,230,194,.8); filter:drop-shadow(0 0 6px rgba(88,230,194,.35)); }
+  .bar-labels{ display:flex; justify-content:space-between; font-size:clamp(11px,2.6vw,12px); opacity:.95; align-items:center; gap:8px; }
+  .legend{ display:inline-flex; gap:8px; align-items:center; font-weight:600 }
+  .swatch{ width:12px; height:12px; border-radius:3px; display:inline-block }
+  .swatch.player{ background:var(--player) } .swatch.ai{ background:var(--ai) }
+  .boostpill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:#121829bf; font-size:12px; box-shadow:0 6px 16px rgba(0,0,0,.25); }
+  .dot{ width:8px; height:8px; border-radius:999px; background:var(--boost); box-shadow:0 0 8px var(--boost); }
+
+  .board{ position:relative; border-radius:20px; overflow:hidden; outline:1px solid var(--border);
+    background:var(--panel); touch-action:none; user-select:none; aspect-ratio:16/9; display:grid; place-items:center;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.03); }
+  canvas{ width:100%; height:100%; image-rendering:pixelated; image-rendering:crisp-edges; display:block; }
+
+  .overlay{ position:absolute; inset:0; display:grid; place-items:center; background:rgba(9,10,15,.66); opacity:0; pointer-events:none; transition:opacity .25s ease; }
+  .overlay.show{ opacity:1; pointer-events:auto }
+  .card{ background:#0e1426; border:1px solid var(--border); padding:18px 20px; border-radius:16px; text-align:center; max-width:min(420px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  .card h2{ margin:0 0 8px; font-size:clamp(18px,5vw,22px) }
+  .card p{ margin:0 12px 14px; opacity:.9; font-size:clamp(12px,3.5vw,14px) }
+  .btn{ background:#121829; color:var(--ui); border:1px solid var(--border); padding:10px 16px; border-radius:999px; cursor:pointer; transition:transform .08s ease, background .2s ease; font-size:clamp(14px,4vw,16px); }
+  .btn:hover{ background:#151d34 } .btn:active{ transform:translateY(1px) scale(.99) }
+  .kbd{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#121829; border:1px solid var(--border); padding:.1em .45em; border-radius:6px }
+
+  .center-tip{ display:flex; justify-content:center; align-items:center; text-align:center; margin-top:4px; }
+  .pill{ background:#121829; color:var(--ui); border:1px solid var(--border); padding:8px 12px; border-radius:999px; font-size:clamp(12px,3.4vw,13px); box-shadow:0 6px 16px rgba(0,0,0,.25); }
+
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important } }
+</style>
+</head>
+<body>
+<div class="app" role="application" aria-label="Rivaux — Duel de territoire">
+  <header>
+    <h1>Rivaux</h1>
+    <div class="sub">Des items apparaissent près de la frontière : <b>✨ vitesse</b> ou <b>💠 zone 5×5</b>. Premier à 65% gagne.</div>
+  </header>
+
+  <div class="hud" aria-live="polite">
+    <div class="bar" aria-hidden="true">
+      <div class="fill-ai" style="width:0%"></div>
+      <div class="fill-player" style="width:0%"></div>
+    </div>
+    <div class="bar-labels">
+      <span class="legend"><span class="swatch ai"></span> IA</span>
+      <span id="score" class="pill">50% — 50%</span>
+      <span class="legend"><span class="swatch player"></span> Toi</span>
+      <span id="boostAI" class="boostpill" style="display:none"><span class="dot"></span>IA boost <span id="bai">3.0s</span></span>
+      <span id="boostPL" class="boostpill" style="display:none"><span class="dot"></span>Toi boost <span id="bpl">3.0s</span></span>
+    </div>
+  </div>
+
+  <div id="board" class="board">
+    <canvas id="c" width="64" height="36"></canvas>
+    <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+      <div class="card">
+        <h2 id="ov-title">Prêt ?</h2>
+        <p id="ov-sub">Sur PC : Souris, Flèches ou WASD. <br>Sur Mobile : touche pour diriger</p>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
+          <button id="start" class="btn">Jouer</button>
+          <button id="replay" class="btn" style="display:none">Rejouer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="center-tip">
+    <span class="pill">Astuce : ✨ = vitesse temporaire • 💠 = capture 5×5</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const W=64,H=36,WIN_PCT=65,CLAIM_RADIUS=1;
+  const PLAYER_SPEED_KEY_BASE=3.4, PLAYER_SPEED_MOUSE_BASE=3.4, START_ASSIST=true;
+
+  const AI_SPEED_BASE=3.3, AI_JITTER=0.10, SENSE_R=6, ENEMY_PULL=1.8, NEUTRAL_PULL=0.4, OWN_REPEL=-0.15;
+  const INERTIA=0.55, TARGET_WEIGHT=2.6, AVOID_PLAYER_DIST2=36, CHASE_WEIGHT=3.0, AGG_MARGIN=3;
+  const STALL_SECS=1.2, BONUS_DIST=3;
+
+  const ITEM_MAX_ON_BOARD=3, ITEM_SPAWN_MIN=2.5, ITEM_SPAWN_MAX=5.5, ITEM_DURATION=4.0;
+  const ITEM_MULT_PLAYER=1.9, ITEM_MULT_AI=1.5;
+  const ITEM_TYPES=['speed','zone'];
+
+  const c=document.getElementById('c');
+  const ctx=c.getContext('2d',{alpha:false, willReadFrequently:false});
+  const overlay=document.getElementById('overlay');
+  const startBtn=document.getElementById('start');
+  const replayBtn=document.getElementById('replay');
+  const scoreEl=document.getElementById('score');
+  const barAI=document.querySelector('.fill-ai'), barPL=document.querySelector('.fill-player');
+  const boostAIEl=document.getElementById('boostAI'), boostPLEl=document.getElementById('boostPL');
+  const bai=document.getElementById('bai'), bpl=document.getElementById('bpl');
+
+  let grid, player, ai, running=false, assist=START_ASSIST, aiShake=0;
+  let aiPrevCells=0, aiNoGainTime=0, frontierTarget=null;
+  let items=[]; let gameTime=0, nextSpawnAt=0;
+  let pBoostUntil=0, aBoostUntil=0;
+  let fx=[];
+  let runElapsed=0;
+
+  const isCoarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+  const rng=(seed=>()=> (seed=(seed*1664525+1013904223)>>>0)/2**32)(Date.now()&0xffffffff);
+  const rand=(a,b)=> a+(b-a)*rng();
+  const idx=(x,y)=> y*W+x;
+  const clamp=(v,a,b)=> v<a?a:(v>b?b:v);
+  const countTeam=t=>{let n=0; for(let i=0;i<grid.length;i++) if(grid[i]===t) n++; return n;}
+  const getPercents=()=>{const aiC=countTeam(1), plC=countTeam(2), tot=aiC+plC||1; return {aiPct:Math.round(aiC*100/tot), plPct:Math.round(plC*100/tot), aiC, plC};}
+
+  // >>> NEW: format temps avec unités + arrondi à la seconde supérieure
+  const fmtTimeUnitsCeil = (sec) => {
+    const total = Math.max(0, Math.ceil(sec));      // arrondi à la seconde supérieure
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m > 0 ? `${m} min ${s} s` : `${s} s`;
+  };
+
+  function seedGrid(){
+    grid=new Uint8Array(W*H);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) grid[idx(x,y)]=(y*(W-1) < x*(H-1))?1:2;
+    player={x:Math.floor(W*0.72), y:Math.floor(H*0.5), vx:0, vy:0};
+    ai    ={x:Math.floor(W*0.28), y:Math.floor(H*0.5), vx:0, vy:0};
+    aiPrevCells=countTeam(1); aiNoGainTime=0; frontierTarget=null;
+  }
+
+  function setOverlay(title, sub, show=true){
+    document.getElementById('ov-title').textContent = title;
+    document.getElementById('ov-sub').innerHTML = sub;   // <-- pas textContent
+    overlay.classList.toggle('show', !!show);
+    }
+  function showStartOverlay(){
+    setOverlay(
+        'Prêt ?',
+        'Sur PC : Souris, Flèches ou WASD.<br>Sur Mobile : touche pour diriger',
+        true
+    );
+    startBtn.style.display='inline-block';
+    replayBtn.style.display='none';
+    }
+  function showEndOverlay(playerWon, elapsedSec){
+    const title = playerWon ? 'Bravo !' : 'Perdu !';
+    const sub   = playerWon
+      ? `Tu as gagné en <b>${fmtTimeUnitsCeil(elapsedSec)}</b>.`
+      : `L’IA a mis <b>${fmtTimeUnitsCeil(elapsedSec)}</b> pour te battre.`;
+    setOverlay(title, sub, true);
+    startBtn.style.display='none'; replayBtn.style.display='inline-block';
+  }
+
+  function reset(){
+    seedGrid(); aiShake=0; running=false;
+    items=[]; gameTime=0; runElapsed=0;
+    nextSpawnAt=rand(ITEM_SPAWN_MIN,ITEM_SPAWN_MAX);
+    pBoostUntil=0; aBoostUntil=0; fx=[];
+    showStartOverlay(); draw(); updateScore();
+  }
+
+  const board=document.getElementById('board');
+  const mouse={x:Math.floor(W*0.72), y:Math.floor(H*0.5), active:false};
+  function toGrid(clientX, clientY){
+    const r=c.getBoundingClientRect();
+    const gx=clamp(Math.floor((clientX-r.left)*(W/r.width)),0,W-1);
+    const gy=clamp(Math.floor((clientY-r.top )*(H/r.height)),0,H-1);
+    return {x:gx,y:gy};
+  }
+  function onPointer(e){
+    const p=('touches'in e)?e.touches[0]:e;
+    const g=toGrid(p.clientX,p.clientY);
+    mouse.x=g.x; mouse.y=g.y; mouse.active=true;
+  }
+  function onPointerUp(){ if(!isCoarse) mouse.active=false; }
+  function onPointerLeave(){ if(!isCoarse) mouse.active=false; }
+  board.addEventListener('pointerdown', onPointer);
+  board.addEventListener('pointermove', onPointer);
+  board.addEventListener('pointerup', onPointerUp);
+  board.addEventListener('pointerleave', onPointerLeave);
+  board.addEventListener('touchstart', onPointer, {passive:true});
+  board.addEventListener('touchmove', onPointer, {passive:true});
+  board.addEventListener('touchend', onPointerUp, {passive:true});
+  board.addEventListener('touchcancel', onPointerUp, {passive:true});
+
+  const keys=new Set();
+  window.addEventListener('keydown', e=>{const k=e.key.toLowerCase(); if(['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s'].includes(k)){ e.preventDefault(); keys.add(k); }},{passive:false});
+  window.addEventListener('keyup', e=>keys.delete(e.key.toLowerCase()));
+
+  function claim(x,y,team){
+    x|=0; y|=0;
+    for(let dy=-CLAIM_RADIUS; dy<=CLAIM_RADIUS; dy++){
+      for(let dx=-CLAIM_RADIUS; dx<=CLAIM_RADIUS; dx++){
+        const gx=x+dx, gy=y+dy;
+        if(gx<0||gy<0||gx>=W||gy>=H) continue;
+        grid[idx(gx,gy)]=team;
+      }
+    }
+  }
+  function claimSquare(cx,cy,r,team){
+    for(let dy=-r;dy<=r;dy++){
+      for(let dx=-r;dx<=r;dx++){
+        const x=(cx|0)+dx, y=(cy|0)+dy;
+        if(x<0||y<0||x>=W||y>=H) continue;
+        grid[idx(x,y)]=team;
+      }
+    }
+  }
+
+  function findFrontierCells(maxPick=400){
+    const list=[];
+    for(let y=1;y<H-1;y++){
+      for(let x=1;x<W-1;x++){
+        const v=grid[idx(x,y)]; if(v===0) continue;
+        const edge=(grid[idx(x+1,y)]!==v)||(grid[idx(x-1,y)]!==v)||(grid[idx(x,y+1)]!==v)||(grid[idx(x,y-1)]!==v);
+        if(edge) list.push({x,y});
+      }
+    }
+    if(list.length>maxPick){ const sel=[]; for(let i=0;i<maxPick;i++) sel.push(list[(Math.random()*list.length)|0]); return sel; }
+    return list;
+  }
+
+  function spawnItem(){
+    if(items.length>=ITEM_MAX_ON_BOARD) return;
+    let x,y;
+    if(rng()<0.7){
+      const f=findFrontierCells();
+      if(f.length){ const p=f[(rng()*f.length)|0]; x=p.x; y=p.y; }
+    }
+    if(x===undefined){ x=(rng()*W)|0; y=(rng()*H)|0; }
+    const type = ITEM_TYPES[(rng()*ITEM_TYPES.length)|0];
+    items.push({x,y,type,t: gameTime + rng()*Math.PI*2});
+  }
+
+  function pickItemAtTeam(x,y,team){
+    for(let i=0;i<items.length;i++){
+      const it=items[i];
+      if(it.x===(x|0) && it.y===(y|0)){
+        items.splice(i,1);
+        if(it.type==='speed'){
+          if(team===2) pBoostUntil=gameTime+ITEM_DURATION; else aBoostUntil=gameTime+ITEM_DURATION;
+          spawnBurst(x,y,'#ffe27a',18,3.2);
+        }else{
+          claimSquare(it.x,it.y,2,team);
+          spawnBurst(x,y,'#82b7ff',22,3.0);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function findFrontierTarget(sx,sy){
+    let best=null, bestD=1e9;
+    for(let y=1;y<H-1;y++){
+      for(let x=1;x<W-1;x++){
+        if(grid[idx(x,y)]!==2) continue;
+        const n1=(grid[idx(x+1,y)]===1)||(grid[idx(x-1,y)]===1)||(grid[idx(x,y+1)]===1)||(grid[idx(x,y-1)]===1);
+        if(!n1) continue;
+        const d=Math.abs(x-sx)+Math.abs(y-sy);
+        if(d<bestD){ bestD=d; best={x,y}; }
+      }
+    }
+    return best;
+  }
+
+  function aiStep(dt, aiSpeed){
+    const {aiPct,plPct}=getPercents();
+    const aggressive=aiPct>=plPct+AGG_MARGIN;
+
+    let vx=0,vy=0;
+    for(let dy=-SENSE_R;dy<=SENSE_R;dy++){
+      for(let dx=-SENSE_R;dx<=SENSE_R;dx++){
+        if(dx===0&&dy===0) continue;
+        const x=(ai.x|0)+dx, y=(ai.y|0)+dy;
+        if(x<0||y<0||x>=W||y>=H) continue;
+        const t=grid[idx(x,y)];
+        let w=(t===2?ENEMY_PULL:(t===1?OWN_REPEL:NEUTRAL_PULL));
+        const dist=Math.hypot(dx,dy); w/=(dist+0.5);
+        vx+=dx*w; vy+=dy*w;
+      }
+    }
+
+    if(!frontierTarget || (Math.abs(frontierTarget.x-ai.x)+Math.abs(frontierTarget.y-ai.y)<=2)){
+      const bx=aggressive?(player.x|0):(ai.x|0);
+      const by=aggressive?(player.y|0):(ai.y|0);
+      frontierTarget=findFrontierTarget(bx,by)||frontierTarget;
+    }
+    if(frontierTarget){
+      const tx=frontierTarget.x-ai.x, ty=frontierTarget.y-ai.y, len=Math.hypot(tx,ty)||1;
+      vx+=(tx/len)*TARGET_WEIGHT; vy+=(ty/len)*TARGET_WEIGHT;
+    }
+
+    const dxp=player.x-ai.x, dyp=player.y-ai.y, d2=dxp*dxp+dyp*dyp;
+    if(d2<AVOID_PLAYER_DIST2){
+      const len=Math.hypot(dxp,dyp)||1;
+      if(aggressive){ vx+=(dxp/len)*CHASE_WEIGHT; vy+=(dyp/len)*CHASE_WEIGHT; }
+      else{ vx+=(-dxp/len)*2.2; vy+=(-dyp/len)*2.2; }
+    }
+
+    vx+=(rng()*2-1)*(AI_JITTER+aiShake*0.5);
+    vy+=(rng()*2-1)*(AI_JITTER+aiShake*0.5);
+    aiShake*=0.9;
+
+    const vlen=Math.hypot(vx,vy)||1, nx=(vx/vlen)*aiSpeed, ny=(vy/vlen)*aiSpeed;
+    ai.vx=ai.vx*INERTIA+nx*(1-INERTIA); ai.vy=ai.vy*INERTIA+ny*(1-INERTIA);
+    ai.x=clamp(ai.x+ai.vx*dt,0,W-1); ai.y=clamp(ai.y+ai.vy*dt,0,H-1);
+  }
+
+  function playerStep(dt, speedKey, speedMouse){
+    let ivx=0,ivy=0;
+    if(['a','arrowleft'].some(k=>keys.has(k))) ivx-=1;
+    if(['d','arrowright'].some(k=>keys.has(k))) ivx+=1;
+    if(['w','arrowup'].some(k=>keys.has(k))) ivy-=1;
+    if(['s','arrowdown'].some(k=>keys.has(k))) ivy+=1;
+    if(ivx||ivy){
+      const len=Math.hypot(ivx,ivy)||1;
+      player.x=clamp(player.x+(ivx/len)*speedKey*dt,0,W-1);
+      player.y=clamp(player.y+(ivy/len)*speedKey*dt,0,H-1);
+    }
+    if(assist && mouse.active){
+      const dx=mouse.x-player.x, dy=mouse.y-player.y, dist=Math.hypot(dx,dy);
+      if(dist>0.001){
+        const ux=dx/dist, uy=dy/dist, step=Math.min(speedMouse*dt, dist);
+        player.x=clamp(player.x+ux*step,0,W-1);
+        player.y=clamp(player.y+uy*step,0,H-1);
+      }
+    }
+  }
+
+  function spawnBurst(x,y,color,count=12,speed=2.6){
+    for(let i=0;i<count;i++){
+      const a=rng()*Math.PI*2, s=speed*(.5+rng());
+      fx.push({x:x+((rng()-.5)*0.4), y:y+((rng()-.5)*0.4), vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.6+rng()*0.4, color});
+    }
+    if(fx.length>240) fx.splice(0, fx.length-240);
+  }
+
+  function draw(){
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='#0c1120'; ctx.fillRect(0,0,W,H);
+
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W;x++){
+        const v=grid[idx(x,y)];
+        if(v===1){ ctx.fillStyle='#2a0f19'; ctx.fillRect(x,y,1,1); ctx.fillStyle='#ff6b91'; ctx.globalAlpha=0.65; ctx.fillRect(x,y,1,1); ctx.globalAlpha=1; }
+        else if(v===2){ ctx.fillStyle='#0c1f1b'; ctx.fillRect(x,y,1,1); ctx.fillStyle='#58e6c2'; ctx.globalAlpha=0.65; ctx.fillRect(x,y,1,1); ctx.globalAlpha=1; }
+        else{ ctx.fillStyle='#131a2b'; ctx.fillRect(x,y,1,1); }
+      }
+    }
+
+    ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.35; ctx.fillStyle='#b9c2ff';
+    const front=findFrontierCells(9999); for(const p of front){ ctx.fillRect(p.x,p.y,1,1); }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+
+    for(const it of items){
+      const isSpeed = it.type==='speed';
+      const color = isSpeed ? '#ffe27a' : '#82b7ff';
+      ctx.globalCompositeOperation='lighter';
+      ctx.globalAlpha=isSpeed?0.25:0.22;
+      for(let r=1;r<=2;r++){
+        for(let dx=-r; dx<=r; dx++){ ctx.fillStyle=color; ctx.fillRect(it.x+dx, it.y-r, 1,1); ctx.fillRect(it.x+dx, it.y+r, 1,1); }
+        for(let dy=-r; dy<=r; dy++){ ctx.fillStyle=color; ctx.fillRect(it.x-r, it.y+dy, 1,1); ctx.fillRect(it.x+r, it.y+dy, 1,1); }
+      }
+      ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+      if(isSpeed){
+        ctx.fillStyle='#3b2d0a'; ctx.fillRect(it.x,it.y,1,1);
+        ctx.fillStyle=color; ctx.fillRect(it.x,it.y,1,1);
+        if(it.x>0) ctx.fillRect(it.x-1,it.y,1,1);
+        if(it.x<W-1) ctx.fillRect(it.x+1,it.y,1,1);
+        if(it.y>0) ctx.fillRect(it.x,it.y-1,1,1);
+        if(it.y<H-1) ctx.fillRect(it.x,it.y+1,1,1);
+      }else{
+        ctx.fillStyle='#0b1b2c'; ctx.fillRect(it.x,it.y,1,1);
+        ctx.fillStyle=color; ctx.fillRect(it.x,it.y,1,1);
+        if(it.x>0 && it.y>0) ctx.fillRect(it.x-1,it.y-1,1,1);
+        if(it.x<W-1 && it.y>0) ctx.fillRect(it.x+1,it.y-1,1,1);
+        if(it.x>0 && it.y<H-1) ctx.fillRect(it.x-1,it.y+1,1,1);
+        if(it.x<W-1 && it.y<H-1) ctx.fillRect(it.x+1,it.y+1,1,1);
+      }
+    }
+
+    ctx.globalAlpha=.95;
+    ctx.fillStyle='#ff6b91'; ctx.fillRect(ai.x|0, ai.y|0, 1, 1);
+    ctx.fillStyle='#58e6c2'; ctx.fillRect(player.x|0, player.y|0, 1, 1);
+    ctx.globalAlpha=1;
+
+    ctx.globalCompositeOperation='lighter';
+    for(let i=fx.length-1;i>=0;i--){
+      const p=fx[i]; ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,1,1);
+    }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
+
+  function updateScore(){
+    const {aiPct,plPct}=getPercents();
+    barAI.style.width=aiPct+'%'; barPL.style.width=plPct+'%';
+    scoreEl.textContent=`${aiPct}% — ${plPct}%`;
+    return {aiPct,plPct};
+  }
+
+  function updateBoostUI(){
+    const pLeft=Math.max(0,pBoostUntil-gameTime), aLeft=Math.max(0,aBoostUntil-gameTime);
+    if(pLeft>0){ boostPLEl.style.display='inline-flex'; bpl.textContent=pLeft.toFixed(1)+'s'; } else boostPLEl.style.display='none';
+    if(aLeft>0){ boostAIEl.style.display='inline-flex'; bai.textContent=aLeft.toFixed(1)+'s'; } else boostAIEl.style.display='none';
+  }
+
+  let lastT=0;
+  function frame(t){
+    if(!running) return;
+    const dt=Math.min(0.05,(t-lastT)/1000)||0.016; lastT=t; gameTime+=dt;
+
+    for(let i=fx.length-1;i>=0;i--){ const p=fx[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; if(p.life<=0) fx.splice(i,1); }
+
+    if(gameTime>=nextSpawnAt){ if(items.length<ITEM_MAX_ON_BOARD) spawnItem(); nextSpawnAt=gameTime+rand(ITEM_SPAWN_MIN,ITEM_SPAWN_MAX); }
+
+    const playerSpeedKey   = PLAYER_SPEED_KEY_BASE   * (gameTime < pBoostUntil ? ITEM_MULT_PLAYER : 1);
+    const playerSpeedMouse = PLAYER_SPEED_MOUSE_BASE * (gameTime < pBoostUntil ? ITEM_MULT_PLAYER : 1);
+    const aiSpeed          = AI_SPEED_BASE           * (gameTime < aBoostUntil ? ITEM_MULT_AI     : 1);
+
+    playerStep(dt, playerSpeedKey, playerSpeedMouse);
+    aiStep(dt, aiSpeed);
+
+    claim(player.x,player.y,2);
+    claim(ai.x,ai.y,1);
+
+    pickItemAtTeam(player.x, player.y, 2);
+    pickItemAtTeam(ai.x, ai.y, 1);
+
+    const near=Math.abs(player.x-ai.x)+Math.abs(player.y-ai.y)<=BONUS_DIST;
+    if(near){ claim(player.x,player.y,2); }
+
+    draw(); updateBoostUI();
+    const {aiPct,plPct}=updateScore();
+
+    const aiC=countTeam(1);
+    if(aiC<=aiPrevCells+1){ aiNoGainTime+=dt; if(aiNoGainTime>STALL_SECS){ frontierTarget=findFrontierTarget(ai.x|0, ai.y|0); aiNoGainTime=0; aiShake=Math.max(aiShake,0.4);} }
+    else aiNoGainTime=0;
+    aiPrevCells=aiC;
+
+    if(aiPct>=WIN_PCT || plPct>=WIN_PCT){
+      running=false;
+      runElapsed = gameTime;                         // durée de manche
+      showEndOverlay(plPct>=WIN_PCT, runElapsed);    // affiche avec unités + ceil
+      return;
+    }
+    requestAnimationFrame(frame);
+  }
+
+  startBtn.addEventListener('click', ()=>{
+    overlay.classList.remove('show');
+    running=true; lastT=performance.now(); gameTime=0;
+    requestAnimationFrame(frame);
+  });
+  replayBtn.addEventListener('click', ()=>{
+    reset(); overlay.classList.remove('show');
+    running=true; lastT=performance.now(); gameTime=0;
+    requestAnimationFrame(frame);
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
