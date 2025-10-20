@@ -135,7 +135,6 @@
   const countTeam=t=>{let n=0; for(let i=0;i<grid.length;i++) if(grid[i]===t) n++; return n;}
   const getPercents=()=>{const aiC=countTeam(1), plC=countTeam(2), tot=aiC+plC||1; return {aiPct:Math.round(aiC*100/tot), plPct:Math.round(plC*100/tot), aiC, plC};}
 
-  // >>> NEW: format temps avec unités + arrondi à la seconde supérieure
   const fmtTimeUnitsCeil = (sec) => {
     const total = Math.max(0, Math.ceil(sec));      // arrondi à la seconde supérieure
     const m = Math.floor(total / 60);
