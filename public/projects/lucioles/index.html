@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Inktober 2025 - Jour 23 — Lucioles derrière l'image</title>
+  <style>
+    *{ box-sizing:border-box }
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      min-height:100dvh;
+      color-scheme: dark;
+      background:black;
+      overflow:hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    /* Canvas des lucioles en arrière-plan */
+    #fireflies{
+      position:fixed; inset:0; width:100vw; height:100vh;
+      display:block; pointer-events:none; z-index:0;
+    }
+
+    #app{
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+    
+    #imgBG{
+        width: 100%;
+    }
+
+    #app{ position:relative; z-index:1; }
+    @supports (padding: env(safe-area-inset-top)) {
+    body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  }
+</style>
+</head>
+<body>
+  <!-- Lucioles (derrière) -->
+  <canvas id="fireflies" aria-hidden="true"></canvas>
+
+  <!-- Contenu -->
+  <div id="app">
+    <img id="imgBG" src="./background.png" alt="Image tirée du film 'Le Tombeau des Lucioles'">
+  </div>
+
+  <script>
+  (() => {
+    const canvas = document.getElementById('fireflies');
+    const ctx = canvas.getContext('2d');
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let W = 0, H = 0, DPR = 1, MOBILE = false;
+    let tPrev = performance.now();
+    let FLIES = [];
+    let emitAcc = 0;
+    let BASE_EMIT = 14; // débit de base desktop
+    let EMIT_RATE = BASE_EMIT;
+    let MAX_FLIES = 300;
+
+    const COLOR_A = { r:250, g:149, b:2 };
+    const COLOR_B = { r:194, g:99, b:12 };
+
+    const rand = (a,b) => Math.random()*(b-a)+a;
+    const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi,v));
+
+    function tune(){
+      MOBILE = Math.min(W,H) < 700 || W < 768;
+      const rawDPR = window.devicePixelRatio || 1;
+      DPR = clamp(rawDPR, 1, MOBILE ? 1.25 : 2);
+      const density = Math.sqrt((W*H) / (1280*720)); // ~1 à 720p
+      EMIT_RATE = MOBILE ? clamp(Math.round(BASE_EMIT * density * 0.8), 6, 18)
+                         : clamp(Math.round(BASE_EMIT * density * 1.0), 8, 22);
+      MAX_FLIES = MOBILE ? 220 : 360;
+    }
+
+    function resize(){
+      W = Math.floor(window.innerWidth);
+      H = Math.floor(window.innerHeight);
+      tune();
+      canvas.width  = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      makeFlies();
+    }
+
+    function spawnOne(){
+      const speed = rand(20, 60) * (MOBILE ? 0.9 : 1);
+      const size  = rand(1.2, 2.6) * (MOBILE ? 0.9 : 1.1);
+      return {
+        baseX: rand(0, W),
+        y: rand(H*0.92, H + 40),
+        speed,
+        size,
+        amp: rand(8, 26) * (MOBILE ? 0.8 : 1),
+        freq: rand(0.6, 1.4),
+        phase: rand(0, Math.PI*2),
+        alpha: rand(0.45, 0.9),
+        dead: false
+      };
+    }
+
+    function makeFlies(){
+      FLIES = [];
+      emitAcc = 0;
+      const pre = MOBILE ? 24 : 40; // petit pré-remplissage
+      for(let i=0;i<pre;i++){ FLIES.push(spawnOne()); }
+    }
+
+    function drawCore(x, y, size, alpha){
+      const rHalo = size * 7;
+      const mix = (a,b,u)=>Math.round(a + (b-a)*u);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rHalo);
+      const c0 = `rgba(${COLOR_A.r}, ${COLOR_A.g}, ${COLOR_A.b}, ${alpha})`;
+      const c1 = `rgba(${mix(COLOR_A.r,COLOR_B.r,0.5)}, ${mix(COLOR_A.g,COLOR_B.g,0.5)}, ${mix(COLOR_A.b,COLOR_B.b,0.5)}, ${alpha*0.7})`;
+      const c2 = `rgba(${COLOR_B.r}, ${COLOR_B.g}, ${COLOR_B.b}, 0)`;
+      g.addColorStop(0, c0);
+      g.addColorStop(0.4, c1);
+      g.addColorStop(1, c2);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, rHalo, 0, Math.PI*2); ctx.fill();
+
+      // coeur plus clair
+      ctx.fillStyle = `rgba(255, 220, 120, ${alpha})`;
+      ctx.beginPath(); ctx.arc(x, y, size*0.9, 0, Math.PI*2); ctx.fill();
+    }
+
+    let running = true;
+    document.addEventListener('visibilitychange', () => {
+      running = document.visibilityState === 'visible';
+      if(running && !prefersReduced){ tPrev = performance.now(); requestAnimationFrame(step); }
+    });
+
+    function step(){
+      if(!running) return;
+      const tNow = performance.now();
+      const dt = Math.min(64, tNow - tPrev) / 1000; // clamp (s)
+      tPrev = tNow;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'lighter';
+
+      const t = tNow / 1000;
+
+      // Emission continue (flux infini)
+      emitAcc += dt * (prefersReduced ? EMIT_RATE * 0.4 : EMIT_RATE);
+      while(emitAcc >= 1){ FLIES.push(spawnOne()); emitAcc -= 1; }
+
+      for(const f of FLIES){
+        f.y -= f.speed * (prefersReduced ? 0.4 : 1) * dt;
+        const x = f.baseX + Math.sin(t * f.freq + f.phase) * f.amp;
+        drawCore(x, f.y, f.size, f.alpha);
+        if(f.y < -f.size*7) f.dead = true; // hors-écran en haut
+      }
+
+      // Nettoyage & garde-fous
+      if(FLIES.length){ FLIES = FLIES.filter(f => !f.dead); }
+      if(FLIES.length > MAX_FLIES){ FLIES.splice(0, FLIES.length - MAX_FLIES); }
+
+      if(!prefersReduced) requestAnimationFrame(step);
+    }
+
+    window.addEventListener('resize', resize, { passive:true });
+    window.addEventListener('orientationchange', () => setTimeout(resize, 60), { passive:true });
+    resize();
+    if(!prefersReduced){ requestAnimationFrame(step); } else { step(); }
+  })();
+</script>
+</body>
+</html>
