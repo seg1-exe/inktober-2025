@@ -20,7 +20,8 @@
     /* Bottom bar: IO sur une seule ligne + bouton de repli */
     .bottombar{position:fixed;left:0;right:0;bottom:calc(var(--controls-h) + var(--gap) + env(safe-area-inset-bottom));z-index:4;display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:10px 12px}
 
-    .io-strip{display:inline-flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow:visible; /* important: pour laisser dépasser la liste vers le haut */ min-width:0}
+    /* Le strip reste en une ligne, mais défile horizontalement sur mobile */
+    .io-strip{display:inline-flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:0;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
     .chip{appearance:none;border:1px solid #ffffff30;background:#141414CC;color:var(--ui-fg);padding:.45rem .8rem;border-radius:999px;cursor:pointer;font-weight:600;font-size:.85rem;transition:transform .06s ease, background .2s ease, border-color .2s ease, opacity .2s;backdrop-filter:blur(6px) saturate(1.2);-webkit-backdrop-filter:blur(6px) saturate(1.2);white-space:nowrap}
     .chip:hover{border-color:#fff6} .chip:active{transform:translateY(1px) scale(.98)}
     input[type=file]{display:none} label[for=file]{cursor:pointer}
@@ -34,7 +35,7 @@
     /* label tronqué + fade */
     #tlLabel{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;-webkit-mask-image:linear-gradient(90deg,#000 85%,rgba(0,0,0,0));mask-image:linear-gradient(90deg,#000 85%,rgba(0,0,0,0))}
 
-    .tracklist{position:absolute;width: 200%;;bottom:calc(100% + 8px);left:0;z-index:10;list-style:none;margin:0;padding:8px;border:1px solid #ffffff22;border-radius:12px;background:#0f0f0fcc;box-shadow:0 12px 40px rgba(0,0,0,.6);backdrop-filter:blur(6px) saturate(1.1);-webkit-backdrop-filter:blur(6px) saturate(1.1);display:none;grid-template-columns:1fr;gap:6px;min-width:150%;max-width:200%;max-height:40vh;overflow:auto}
+    .tracklist{position:absolute;bottom:calc(100% + 8px);left:0;z-index:10;list-style:none;margin:0;padding:8px;border:1px solid #ffffff22;border-radius:12px;background:#0f0f0fcc;box-shadow:0 12px 40px rgba(0,0,0,.6);backdrop-filter:blur(6px) saturate(1.1);-webkit-backdrop-filter:blur(6px) saturate(1.1);display:none;grid-template-columns:1fr;gap:6px;min-width:clamp(280px,60vw,720px);max-width:min(90vw,720px);max-height:40vh;overflow:auto;-webkit-overflow-scrolling:touch}
     .trackbox[aria-expanded="true"] .tracklist{display:grid}
 
     .tracklist li{margin:0}
@@ -70,8 +71,42 @@
     .ctrl input[type=range],.ctrl input[type=number]{width:100%}
     .ctrl select,.ctrl input[type=checkbox]{justify-self:end}
 
-    @media (max-width:1024px){ .audio-bar{justify-self:stretch;grid-column:2/3;min-width:0} .trackbox{min-width:0;max-width:unset} .nowplaying{max-width:64vw} }
-    @media (max-width:768px){ .bottombar{grid-template-columns:1fr auto auto;row-gap:8px;align-items:center} .audio-bar{grid-column:2/3;width:100%;min-width:0} .toggle{grid-column:3/4;justify-self:end} .chip{padding:.4rem .7rem;font-size:.8rem} .controls{grid-template-columns:repeat(2,minmax(0,1fr))} .ctrl{grid-template-columns:1fr 1fr auto} .nowplaying{bottom:calc(var(--controls-h) + var(--gap) + env(safe-area-inset-bottom) + 56px); max-width:72vw} }
+    /* TABLETTE */
+    @media (max-width:1024px){
+      .audio-bar{justify-self:stretch;grid-column:2/3;min-width:0}
+      .trackbox{min-width:0;max-width:unset}
+      .nowplaying{max-width:64vw}
+    }
+
+    @media (max-width:768px){
+    .bottombar{grid-template-columns:1fr auto;row-gap:8px;align-items:center}
+    .audio-bar{display:none}
+    .toggle{grid-column:2/3;justify-self:end}
+    .chip{padding:.4rem .7rem;font-size:.8rem}
+    .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ctrl{grid-template-columns:1fr 1fr auto}
+    .nowplaying{bottom:calc(var(--controls-h) + var(--gap) + env(safe-area-inset-bottom) + 56px); max-width:90vw}
+
+    /* Liste fixée au viewport sur mobile */
+    .trackbox{position:static}
+    .tracklist{
+        position:fixed; left:12px; right:12px;
+        bottom:calc(var(--controls-h) + var(--gap) + env(safe-area-inset-bottom) + 56px);
+        min-width:auto; max-width:none; width:auto; max-height:50vh;
+        z-index:50; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+    }
+
+    .io-strip{padding-bottom:6px}
+    }
+
+
+    /* PETIT MOBILE */
+    @media (max-width:480px){
+      .time{display:none}
+      .audio-bar{grid-template-columns:auto 1fr auto}
+      .vol{width:64px}
+      #tlLabel{max-width:52vw}
+    }
 
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   </style>
@@ -237,7 +272,7 @@
     async function playTrack(url,label='Morceau',isObjectUrl=false,btnRef=null){ try{ await ensureAudioCtx(); stopMic(); if(currentUrl&&currentUrlIsObj){ try{ URL.revokeObjectURL(currentUrl);}catch{} } currentUrl=url; currentUrlIsObj=!!isObjectUrl; player.src=currentUrl; player.currentTime=0; await player.play(); setActiveSource('file'); setNowPlaying(label); setActiveRow(btnRef); if(!raf) start(); }catch(err){ console.error(err); } }
 
     // Liste des morceaux (click)
-    tracklist.addEventListener('click', async(e)=>{ const btn=e.target.closest('.track-row'); if(!btn) return; const url=btn.getAttribute('data-src'); const title=btn.querySelector('.title')?.textContent?.trim()||'Morceau'; await playTrack(url, title, false, btn); });
+    tracklist.addEventListener('click', async(e)=>{ const btn=e.target.closest('.track-row'); if(!btn) return; const url=btn.getAttribute('data-src'); const title=btn.querySelector('.title')?.textContent?.trim()||'Morceau'; await playTrack(url, title, false, btn); if (window.matchMedia('(max-width: 768px)').matches) setTl(false); });
 
     // === Custom audio controls ===
     playPause.addEventListener('click', async()=>{ if(!player.src) return; if(player.paused){ try{ await ensureAudioCtx(); await player.play(); setActiveSource('file'); }catch(e){ console.error(e);} } else { player.pause(); } });
@@ -274,42 +309,41 @@
       const atk=0.35, rel=0.08; const kUp=1-Math.exp(-dt*(atk*60)); const kDn=1-Math.exp(-dt*(rel*60));
       amp += (targetAmp>amp ? (targetAmp-amp)*kUp : (targetAmp-amp)*kDn);
 
-      let lowE=0, count=0; for(let i=40;i<=150;i++){ /* indices mis à jour via updateKickBand */ }
-      // recalcul précis sur la bande kick
-      lowE=0; count=0; for(let i=lowStartIdx;i<=lowEndIdx;i++){ const a=Math.pow(10,bins[i]/20); lowE+=a*a; count++; } if(count>0) lowE/=count;
+      // Bande kick
+      let lowE=0, count=0; for(let i=lowStartIdx;i<=lowEndIdx;i++){ const a=Math.pow(10,bins[i]/20); lowE+=a*a; count++; } if(count>0) lowE/=count;
       const envCoef=1-Math.exp(-dt/0.25); lowEnv += (lowE-lowEnv)*envCoef;
       const sens=parseFloat(elKick.value); const now=performance.now(); const refractory=110; let kickTriggered=false;
       if(lowE>lowEnv*sens && (now-lastKickMs)>refractory){ lastKickMs=now; flashVal=1; kickBoost=1; kickTriggered=true; }
       flashVal*=Math.exp(-dt/0.12); kickBoost*=Math.exp(-dt/0.35);
 
-      // Envelope buffer for BPM estimation
-      const envFs=200; // same as outer const, shadowed for clarity
-      const envDt=1/envFs;
-      // (buffer maintenance already in outer scope)
+      // (BPM auto + snap gérés ailleurs dans ta version complète)
 
-      // Snap BPM
-      let beatInterval = 60 / (Math.max(60, Math.min(200, bpmEst)) || 120);
-      if(elAutoBpm.checked && envFilled>envFs*4){ /* estimation mise à jour dans estimateBPM() via timers */ }
+      const visAmp=Math.max(0,Math.min(1, amp*0.8 + kickBoost*0.6));
+      root.style.setProperty('--amp', visAmp.toFixed(3)); root.style.setProperty('--flash', Math.max(0,Math.min(1,flashVal)).toFixed(3));
 
+      // Spectrogram scroll
       const reduced=elReduce.checked; const targetSpeed=+elSpeed.value; const speed=reduced? Math.max(10,targetSpeed*0.4) : targetSpeed;
-      const pxPerFrameCSS=speed*dt; const pxPerFrame=pxPerFrameCSS* (Math.max(1, Math.min(2, window.devicePixelRatio||1))); pxCarry+=pxPerFrame; const shift=Math.floor(pxCarry);
+      const pxPerFrameCSS=speed*dt; const pxPerFrame=pxPerFrameCSS*dpr; pxCarry+=pxPerFrame; const shift=Math.floor(pxCarry);
       if(shift>0){ ctx2d.drawImage(canvas, shift,0, width-shift, height, 0,0, width-shift,height); pxCarry-=shift; const img=ctx2d.createImageData(shift, height); const data=img.data; const bright=parseFloat(elBright.value); const contrast=parseFloat(elContrast.value); const palette=getPaletteFn(); const minDb=analyser.minDecibels, maxDb=analyser.maxDecibels; const range=maxDb-minDb; for(let x=0;x<shift;x++){ for(let y=0;y<height;y++){ const idx=binIndexForY[y]||0; const vdb=bins[idx]; let tnorm=(vdb-minDb)/range; if(!Number.isFinite(tnorm)) tnorm=0; tnorm=(tnorm-0.5)*contrast+0.5+bright; tnorm=Math.max(0,Math.min(1, Math.pow(tnorm,0.85))); const {r,g,b}=palette(tnorm); const off=(y*shift+x)*4; data[off]=r; data[off+1]=g; data[off+2]=b; data[off+3]=255; } } ctx2d.putImageData(img, width-shift, 0); }
-
-      // (flash/amp variables updated elsewhere — omis pour brièveté dans ce bloc)
     }
 
     function getPaletteFn(){ const mode=elPalette.value; if(mode==='cmy') return cmy; if(mode==='rainbow') return rainbow; if(mode==='thermal') return thermal; return cmy; }
-    function lerp(a,b,t){return a+(b-a)*t} function mix(c1,c2,t){return {r:lerp(c1.r,c2.r,t), g:lerp(c1.g,c2.g,t), b:lerp(c1.b,c2.b,t)} }
+    function lerp(a,b,t){return a+(b-a)*t} function mix(c1,c2,t){return { r:lerp(c1.r,c2.r,t), g:lerp(c1.g,c2.g,t), b:lerp(c1.b,c2.b,t) } }
     function cmy(t){ const stops=[{p:0,c:{r:0,g:0,b:0}},{p:.33,c:{r:0,g:255,b:255}},{p:.66,c:{r:255,g:0,b:255}},{p:1,c:{r:255,g:255,b:0}}]; if(t<=0)return stops[0].c; if(t>=1)return stops[3].c; let i=1; while(i<stops.length&&t>stops[i].p)i++; const s0=stops[i-1], s1=stops[i]; const u=(t-s0.p)/(s1.p-s0.p); return mix(s0.c,s1.c,u); }
     function rainbow(t){ const h=300*t, s=100, l=lerp(25,60,t); return hsl(h,s,l); }
     function thermal(t){ const stops=[{p:0,c:{r:0,g:0,b:0}},{p:.35,c:{r:80,g:0,b:0}},{p:.55,c:{r:200,g:40,b:0}},{p:.80,c:{r:255,g:180,b:0}},{p:1,c:{r:255,g:255,b:200}}]; if(t<=0)return stops[0].c; if(t>=1)return stops[4].c; let i=1; while(i<stops.length&&t>stops[i].p)i++; const s0=stops[i-1], s1=stops[i]; const u=(t-s0.p)/(s1.p-s0.p); return mix(s0.c,s1.c,u); }
     function hsl(h,s,l){ s/=100; l/=100; const c=(1-Math.abs(2*l-1))*s; const x=c*(1-Math.abs(((h/60)%2)-1)); const m=l-c/2; let r=0,g=0,b=0; if(0<=h&&h<60){r=c;g=x}else if(60<=h&&h<120){r=x;g=c}else if(120<=h&&h<180){g=c;b=x}else if(180<=h&&h<240){g=x;b=c}else if(240<=h&&h<300){r=x;b=c}else{r=c;b=x} return { r:Math.round((r+m)*255), g:Math.round((g+m)*255), b:Math.round((b+m)*255) } }
 
-    function estimateBPM(){ const windowLen=Math.min(envFilled, Math.floor(envFs*6)); if(windowLen<envFs*3) return null; const w=new Float32Array(windowLen); let sum=0; for(let i=0;i<windowLen;i++){ const idx=(envIdx-windowLen+i+envBuf.length)%envBuf.length; const v=envBuf[idx]; w[i]=v; sum+=v; } const mu=sum/windowLen; let varsum=0; for(let i=0;i<windowLen;i++){ const d=w[i]-mu; w[i]=d; varsum+=d*d; } const denom=Math.sqrt(varsum); if(denom<1e-8) return null; let bestLag=-1, bestCorr=-1; const minBPM=60, maxBPM=180; for(let bpm=minBPM; bpm<=maxBPM; bpm+=1){ const lag=Math.round((60/bpm)*envFs); if(lag<=1 || lag>=windowLen-1) continue; let corr=0; for(let i=lag;i<windowLen;i++){ corr += w[i] * w[i-lag]; } corr=Math.max(0, corr/(denom*denom)); const aliasPenalty=(bpm>140||bpm<75)?0.95:1.0; corr*=aliasPenalty; if(corr>bestCorr){ bestCorr=corr; bestLag=lag; } } if(bestLag<2) return null; const estBPM=60/(bestLag/envFs); return Math.max(60, Math.min(200, estBPM)); }
-
     const ro=new ResizeObserver(()=>{ syncControlsHeight(); }); ro.observe(controls);
     window.addEventListener('resize', resize); window.addEventListener('orientationchange', resize);
-    resize(); updateOutputs();
+    // Click-away pour fermer la liste quand on tape en dehors
+    document.addEventListener('click', (e)=>{
+      if(trackbox.getAttribute('aria-expanded')==='true' && !e.target.closest('#trackbox')){
+        setTl(false);
+      }
+    });
+
+    resize();
   })();
   </script>
 </body>
