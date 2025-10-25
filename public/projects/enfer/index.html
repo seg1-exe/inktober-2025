@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Musée Virtuel — Œuvres plein écran</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Typos -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- GSAP + ScrollTrigger (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+
+  <style>
+    :root{
+      --bg:#0b0b10;
+      --gold:#c7a86b; --bordeaux:#6b1020;
+      --ivory:#f7f3e7; --muted:#a9a6a0;
+
+      /* Safe areas */
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+
+      /* Paddings / réserves */
+      --panel-pad-v: 7vh;
+      --panel-pad-h: clamp(4vw, 6vw, 8vw);
+      --header-safe: calc(64px + var(--safe-top));
+      --footer-safe: calc(24px + var(--safe-bottom));
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family:"Cormorant Garamond",serif; color:var(--ivory);
+      background: var(--bg);
+      overflow-x:hidden;
+      overscroll-behavior-y: contain;
+      touch-action: pan-y;
+    }
+    a{color:var(--gold); text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* Masquer la barre de scroll verticale (le scroll reste actif) */
+    html{scrollbar-width:none; -ms-overflow-style:none;}
+    html::-webkit-scrollbar{display:none;}
+    body::-webkit-scrollbar{display:none;}
+
+    /* Grain subtil */
+    body::after{
+      content:""; position:fixed; inset:0; pointer-events:none;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E") repeat;
+      mix-blend-mode:soft-light;
+    }
+
+    header{
+      position:fixed; z-index:10;
+      top: calc(18px + var(--safe-top));
+      left: calc(24px + var(--safe-left));
+      right: calc(24px + var(--safe-right));
+      display:flex; justify-content:space-between; align-items:center;
+      pointer-events:none;
+    }
+    .brand{
+      pointer-events:auto; font-family:"Playfair Display",serif;
+      letter-spacing:.3px; text-shadow:0 1px 0 rgba(0,0,0,.6);
+      font-size:clamp(16px,1.8vw,22px);
+    }
+    .brand em{color:var(--gold); font-style:normal}
+    .hint{ pointer-events:auto; font-size:.95rem; color:var(--muted); }
+
+    /* ====== Desktop: scroller horizontal (pinné) ====== */
+    #museum{
+      position:relative; width:100vw;
+      height:100vh; height:100svh;
+      overflow:hidden;
+    }
+    .track{
+      position:absolute; top:0; left:0;
+      height:100vh; height:100svh;
+      display:flex; align-items:stretch; will-change:transform;
+    }
+
+    /* Panel plein écran */
+    .panel{
+      position:relative; width:100vw;
+      height:100vh; height:100svh;
+      padding: calc(var(--panel-pad-v) + var(--header-safe)) var(--panel-pad-h)
+               calc(var(--panel-pad-v) + var(--footer-safe)) var(--panel-pad-h);
+      display:grid;
+      grid-template-columns: minmax(0,1fr) clamp(280px, 34vw, 520px);
+      gap:clamp(16px, 2.8vw, 36px);
+      align-items:center; isolation:isolate;
+    }
+
+    /* Halo doux (fixe) */
+    .panel::before{
+      content:""; position:absolute; inset:-10%;
+      background:
+        radial-gradient(60vw 60vh at 35% 50%, rgba(255,245,210,.06), transparent 60%),
+        radial-gradient(40vw 40vh at 80% 40%, rgba(200,40,40,.05), transparent 60%);
+      pointer-events:none; z-index:0;
+    }
+
+    /* Colonne image */
+    .media{
+      position:relative; height:100%;
+      display:flex; align-items:center; justify-content:center;
+      min-height:0;
+    }
+
+    /* Image : ENTIEREMENT visible, pas de fond coloré */
+    .media img{
+      box-sizing:border-box;
+      width:100%; height:100%;
+      max-width:100%; max-height:100%;
+      object-fit:contain;
+      background: transparent;
+      filter: contrast(1.02) saturate(0.92);
+      transform-origin:center center; will-change:transform;
+    }
+
+    /* Cartel */
+    .info{
+      height:100%; overflow:auto; padding:6px 4px 6px 12px;
+      border-left:1px solid rgba(255,255,255,.08);
+      min-height:0; max-width:65ch;
+    }
+    .title{ font-family:"Playfair Display",serif;
+      font-size:clamp(22px,2.6vw,40px); line-height:1.15; margin-bottom:10px; }
+    .meta{ color:var(--muted); font-size:1.05rem; margin-bottom:14px; }
+    .desc{ color:#ddd; font-size:1.08rem; line-height:1.55; }
+    .src{ margin-top:16px; }
+
+    /* ====== Barre de progression (PC uniquement) ====== */
+    .progressbar{
+      position:fixed;
+      left:50%;
+      bottom: calc(22px + var(--safe-bottom));
+      transform:translateX(-50%);
+      width:min(78vw,980px); height:4px; z-index:12;
+      background:linear-gradient(90deg, rgba(255,255,255,.15), rgba(255,255,255,.05));
+      border-radius:999px; box-shadow:0 1px 0 rgba(0,0,0,.6) inset;
+    }
+    .progressbar > span{
+      display:block; height:100%; width:0%;
+      background:linear-gradient(90deg, var(--gold), var(--bordeaux));
+      border-radius:999px; transition:width .2s ease;
+    }
+
+    /* ====== Mobile/tablettes : vertical natif + descriptions complètes ====== */
+    @media (max-width: 1024px){
+      /* Le musée n'est plus pinné : vertical natif */
+      #museum{
+        height:auto;
+        overflow:visible;
+        scroll-snap-type: y mandatory;       /* snap net */
+        scroll-padding-top: calc(10px + var(--safe-top));
+      }
+      .track{
+        position:static;
+        height:auto;
+        display:block;
+        will-change:auto;
+      }
+      .panel{
+        width:100%;
+        min-height:92svh; height:auto;       /* réduit la hauteur pour moins d'espace entre œuvres */
+        padding: calc(3vh + var(--safe-top)) var(--panel-pad-h)
+                 calc(4vh + var(--safe-bottom)) var(--panel-pad-h);
+        grid-template-columns: 1fr;
+        grid-template-rows: min(52svh, 56vh) auto; /* image moins haute => + de place au texte */
+        gap:14px;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+      }
+      .media{ height:auto; }
+      .media img{
+        width:100%; height: min(52svh, 56vh);
+      }
+      .info{
+        height:auto; overflow:visible; /* défilement via la page (pas interne) */
+        border-left:none;
+        border-top:1px solid rgba(255,255,255,.08);
+        padding-left:0; padding-top:12px;
+        max-width:none;
+      }
+      .hint{ display:none; } /* gain d'espace */
+      .progressbar{ display:none; } /* <-- masquée sur mobile/tablette */
+
+      /* ----- Lire plus / moins ----- */
+      .desc{
+        position:relative;
+        --lines: 7;
+        display:-webkit-box;
+        -webkit-box-orient: vertical;
+        overflow:hidden;
+      }
+      .desc.is-clamped{ -webkit-line-clamp: var(--lines); }
+      .desc.expanded{ display:block; overflow:visible; }
+      .desc.is-clamped::after{
+        content:"";
+        position:absolute; left:0; right:0; bottom:0; height:3rem;
+        background: linear-gradient(180deg, transparent, rgba(11,11,16,0.92));
+        pointer-events:none;
+      }
+      .readmore{
+        display:inline-flex; align-items:center; gap:.4em;
+        margin-top:10px; font: inherit; color: var(--gold);
+        background: transparent; border: none; padding: 6px 0; cursor: pointer;
+      }
+      .readmore:focus-visible{ outline: 2px dashed var(--gold); outline-offset: 2px; }
+    }
+
+    @media (max-height: 560px){
+      :root{ --panel-pad-v: 3.5vh; --footer-safe: calc(12px + var(--safe-bottom)); }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .media img{ animation:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Musée Virtuel — <em>Enfers</em></div>
+    <div class="hint">Défile (horizontale sur PC • verticale sur mobile)</div>
+  </header>
+
+  <main>
+    <section id="museum" aria-label="Musée — navigation adaptative">
+      <div class="track" id="track" aria-live="polite"></div>
+    </section>
+    <!-- Barre de progression (PC) -->
+    <div class="progressbar" aria-hidden="true"><span id="progress"></span></div>
+  </main>
+
+  <script>
+  // Données
+  const artworks = [
+    {
+      id: 1,
+      title: "La Chute des anges rebelles",
+      artist: "Pieter Brueghel l'Ancien",
+      year: 1562,
+      description: "La Chute des anges rebelles (aussi connu sous le nom de L'archange Michel terrassant le dragon apocalyptique) est une peinture à l'huile du peintre Pieter Brueghel l'Ancien datée de 1562 et exposée aux musées royaux des beaux-arts de Belgique à Bruxelles, aux côtés de La Chute d'Icare et du Paysage d'hiver avec patineurs et trappe aux oiseaux.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Pieter_Bruegel_the_Elder_-_The_Fall_of_the_Rebel_Angels_-_Google_Art_Project.jpg/1920px-Pieter_Bruegel_the_Elder_-_The_Fall_of_the_Rebel_Angels_-_Google_Art_Project.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/La_Chute_des_anges_rebelles"
+    },
+    {
+      id: 2,
+      title: "Le Jardin des délices",
+      artist: "Jérôme Bosch",
+      year: "1503-1504",
+      description: "Le Jardin des délices est une peinture à l'huile sur bois du peintre néerlandais Jérôme Bosch, appartenant à la période des primitifs flamands. L'œuvre est structurée en triptyque, format souvent utilisé par les peintres du début du XVe siècle jusqu'au début du XVIIe siècle dans la partie septentrionale de l'Europe. Elle est le plus souvent datée de 1490 à 1500, bien que des chercheurs en avancent la création jusqu'aux années 1480.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/The_Garden_of_earthly_delights.jpg/1920px-The_Garden_of_earthly_delights.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/Le_Jardin_des_d%C3%A9lices"
+    },
+    {
+      id: 3,
+      title: "Dante et Virgile",
+      artist: "William Bouguereau",
+      year: 1850,
+      description: "Dante et Virgile est un tableau de William Bouguereau peint en 1850. Inspirée de la Divine Comédie de Dante Alighieri (et plus précisément d'une scène se déroulant au chant XXX de l'Enfer : Capocchio mordu au cou par Gianni Schicchi), cette huile sur toile est conservée au musée d'Orsay, à Paris.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/William_Bouguereau_-_Dante_and_Virgile_-_Google_Art_Project_2.jpg/800px-William_Bouguereau_-_Dante_and_Virgile_-_Google_Art_Project_2.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/Dante_et_Virgile"
+    },
+    {
+      id: 4,
+      title: "La Barque de Dante",
+      artist: "Eugène Delacroix",
+      year: 1822,
+      description: "La Barque de Dante ou Dante et Virgile aux enfers est un des premiers tableaux d'Eugène Delacroix. Daté et signé 1822, il l'expose au Salon de la même année qui marquera son entrée officielle parmi les peintres. Bien que cette toile soit sujette à critique, l'État l'acquiert aussitôt.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/La_Barque_de_Dante_%28Delacroix_3820%29.jpg/1280px-La_Barque_de_Dante_%28Delacroix_3820%29.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/La_Barque_de_Dante_(Delacroix)"
+    },
+    {
+      id: 5,
+      title: "La Carte de l'Enfer",
+      artist: "Sandro Botticelli",
+      year: "1485 - 1495",
+      description: "La Divine Comédie illustrée par Botticelli est un manuscrit ancien contenant le texte de la Divine Comédie et dont l'illustration a été entamée par Sandro Botticelli. De nos jours, tous les feuillets sont détachés, 84 d'entre eux sont conservés au Kupferstichkabinett de Berlin et huit autres à la Bibliothèque apostolique vaticane.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Sandro_Botticelli_-_La_Carte_de_l%27Enfer.jpg/1920px-Sandro_Botticelli_-_La_Carte_de_l%27Enfer.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/Divine_Com%C3%A9die_illustr%C3%A9e_par_Botticelli"
+    },
+    {
+      id: 6,
+      title: "Le Triomphe de la Mort",
+      artist: "Pieter Brueghel l'Ancien",
+      year: 1562,
+      description: "Le Triomphe de la Mort (1562) est une œuvre de Pieter Brueghel l'Ancien conservée au musée du Prado à Madrid (Espagne). Ce tableau est une allégorie mettant en scène diverses formes relatives à la mort : crime, exécution, maladie, combat, suicide, mort en couche, noyade. Allégorie de la mort à qui personne n'échappe, on y voit toutes les classes sociales, rois, cardinaux, joueurs de cartes, amants, égaux devant la mort. Un squelette à cheval porte une faux et commande à une horde de squelettes. Une claire inspiration de l'Apocalypse biblique aussi est l'image de deux squelettes munis de filets, tels des pêcheurs d'âmes. Dans le haut de la peinture on voit la mer et une terre déserte, annonciatrice du sort inévitable de cette bataille entre vivants et morts. Si le style est indéniablement inspiré par Jérôme Bosch , l’œuvre s'inspire des xylographies d'Hans Holbein le Jeune",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/The_Triumph_of_Death_by_Pieter_Bruegel_the_Elder.jpg/1920px-The_Triumph_of_Death_by_Pieter_Bruegel_the_Elder.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/Le_Triomphe_de_la_Mort_(Brueghel)"
+    },
+    {
+      id: 7,
+      title: "La Porte de l'Enfer",
+      artist: "Auguste Rodin",
+      year: "1880 - 1917",
+      description: "La Porte de l'Enfer est une sculpture monumentale (6,35 × 4 m) du sculpteur français Auguste Rodin, qui constitua tout au long de sa vie son plus important travail et d'où furent extraites pendant plus de 30 ans ses plus fameuses sculptures individuelles dont le célèbre Penseur.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/La_puerta_del_Infierno_.jpg/800px-La_puerta_del_Infierno_.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/La_Porte_de_l%27Enfer"
+    },
+    {
+      id: 8,
+      title: "Le Pandemonium",
+      artist: "John Martin",
+      year: 1841,
+      description: "Le Pandemonium est une huile sur toile de 123 × 185 cm exécutée par le peintre anglais John Martin en 1841. Elle est actuellement exposée au Musée du Louvre à Paris. Le Pandémonium peut être considéré comme l'aboutissement de la carrière de John Martin. En effet, produite vers la fin de sa vie, la peinture reprend le style bien établi de l'artiste qui utilise la peinture d’histoire et de paysage pour ses œuvres. Ce tableau représente Satan devant la capitale de l'Enfer, le Pandémonium, regroupant une armée de créatures démoniaques. Cette peinture est inspirée du poème épique et biblique Le Paradis perdu de John Milton qui aborde l'origine de l'Homme d'un point de vue chrétien, du péché originel et qui dénonce les valeurs guerrières mises en valeur dans les épopées classiques.",
+      imageUrl: "https://upload.wikimedia.org/wikipedia/commons/3/38/Pandemonium.jpg",
+      sourceUrl: "https://fr.wikipedia.org/wiki/La_Porte_de_l%27Enfer"
+    },
+  ];
+
+  // Construction DOM
+  const track = document.getElementById('track');
+
+  function createPanel(art, index){
+    const panel = document.createElement('section');
+    panel.className = 'panel';
+    panel.dataset.index = index;
+
+    const media = document.createElement('div');
+    media.className = 'media';
+
+    const img = document.createElement('img');
+    img.alt = `${art.title} — ${art.artist}`;
+    img.src = art.imageUrl;
+
+    img.onerror = () => {
+      img.removeAttribute('src');
+      img.style.background = 'linear-gradient(135deg,#1a1c22,#0f1116)';
+      img.style.width = 'min(90%, 720px)';
+      img.style.height = 'min(80%, 80svh)';
+      img.setAttribute('aria-hidden','true');
+
+      const note = document.createElement('div');
+      note.style.position="absolute"; note.style.bottom="10px"; note.style.right="12px";
+      note.style.fontSize="12px"; note.style.color="var(--muted)";
+      note.textContent="Image manquante (remplace imageUrl)";
+      media.appendChild(note);
+    };
+
+    media.appendChild(img);
+
+    const info = document.createElement('aside');
+    info.className = 'info';
+    info.innerHTML = `
+      <h2 class="title">${art.title}</h2>
+      <div class="meta">${art.artist} — ${art.year ?? ""}</div>
+      <p class="desc">${art.description ?? ""}</p>
+      <button class="readmore" type="button" aria-expanded="false" hidden>Lire plus</button>
+      <p class="src">Source : ${art.sourceUrl ? `<a href="${art.sourceUrl}" target="_blank" rel="noopener">Voir la source</a>` : "—"}</p>
+    `;
+
+    panel.appendChild(media);
+    panel.appendChild(info);
+    return panel;
+  }
+
+  artworks.forEach((art, i) => track.appendChild(createPanel(art, i)));
+
+  // ====== Comportement adaptatif ======
+  window.addEventListener('load', () => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    ScrollTrigger.matchMedia({
+      // Desktop : horizontal GSAP + barre de progression
+      "(min-width: 1025px)": function(){
+        const panels = gsap.utils.toArray('.panel');
+        const num = panels.length;
+        const progressBar = document.getElementById('progress');
+
+        const tl = gsap.timeline({ defaults:{ ease:'none' } })
+          .to('.track', { x: () => `-${(num-1) * 100}vw`, duration: 1 }, 0);
+
+        const st = ScrollTrigger.create({
+          id: 'museumST',
+          trigger: '#museum',
+          start: 'top top',
+          end: () => `+=${num * window.innerWidth}`,
+          scrub: 0.9,
+          animation: tl,
+          pin: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+          snap: num > 1 ? {
+            snapTo: panels.map((_, i) => i/(num-1)),
+            duration: 0.25,
+            ease: 'power1.out'
+          } : false,
+          onUpdate: self => {
+            if (progressBar) progressBar.style.width = (self.progress * 100) + '%';
+          }
+        });
+
+        const onResize = () => st.refresh();
+        window.addEventListener('resize', onResize, { passive:true });
+
+        return () => {
+          window.removeEventListener('resize', onResize);
+          if (st) st.kill();
+          if (tl) tl.kill();
+          gsap.set('.track', { clearProps: 'all' });
+          if (progressBar) progressBar.style.width = '0%';
+        };
+      },
+
+      // Mobile / tablettes : vertical natif
+      "(max-width: 1024px)": function(){
+        gsap.set('.track', { clearProps: 'all' });
+        ScrollTrigger.getAll().forEach(t => t.kill());
+        // Configure Lire plus/moins selon la taille
+        setupReadMore();
+        return () => {};
+      }
+    });
+
+    // Respiration discrète
+    breatheImages();
+    // Initial setup + on resize/orientation
+    setupReadMore();
+    window.addEventListener('resize', setupReadMore, { passive:true });
+    window.addEventListener('orientationchange', setupReadMore);
+  });
+
+  function breatheImages(){
+    const imgs = document.querySelectorAll('.media img');
+    imgs.forEach(img => {
+      gsap.fromTo(img, { scale: 0.99 }, {
+        scale: 1.00,
+        duration: 4.6,
+        ease: 'sine.inOut',
+        yoyo: true, repeat: -1,
+        delay: Math.random()*2
+      });
+    });
+  }
+
+  // Lire plus / Lire moins (mobile)
+  function setupReadMore(){
+    const isMobile = window.matchMedia("(max-width: 1024px)").matches;
+    document.querySelectorAll('.panel').forEach(panel => {
+      const desc = panel.querySelector('.desc');
+      const btn = panel.querySelector('.readmore');
+      if (!desc || !btn) return;
+
+      if (!isMobile){
+        // Desktop : pas de clamp, bouton masqué
+        desc.classList.remove('is-clamped','expanded');
+        btn.hidden = true;
+        btn.setAttribute('aria-expanded','false');
+        btn.textContent = 'Lire plus';
+        return;
+      }
+
+      // Mobile : activer clamp par défaut
+      desc.classList.remove('expanded');
+      desc.classList.add('is-clamped');
+
+      // Montrer le bouton seulement si le texte dépasse
+      requestAnimationFrame(() => {
+        if (desc.scrollHeight > desc.clientHeight + 1){
+          btn.hidden = false;
+        } else {
+          btn.hidden = true;
+        }
+      });
+
+      // Bind une seule fois
+      if (!btn.dataset.bound){
+        btn.addEventListener('click', () => {
+          const expanded = btn.getAttribute('aria-expanded') === 'true';
+          if (expanded){
+            desc.classList.add('is-clamped');
+            desc.classList.remove('expanded');
+            btn.setAttribute('aria-expanded','false');
+            btn.textContent = 'Lire plus';
+          } else {
+            desc.classList.remove('is-clamped');
+            desc.classList.add('expanded');
+            btn.setAttribute('aria-expanded','true');
+            btn.textContent = 'Lire moins';
+          }
+        });
+        btn.dataset.bound = '1';
+      }
+    });
+  }
+  </script>
+
+  <!-- Barre de progression (visible sur PC, masquée par CSS sur mobile) -->
+  <div class="progressbar" aria-hidden="true"><span id="progress"></span></div>
+</body>
+</html>
