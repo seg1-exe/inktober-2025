@@ -99,7 +99,23 @@
       #hud .pill{ font-size:1.05rem }
       #hud button{ padding:.6rem .9rem }
     }
-    
+
+    /* Mobile landscape: plus difficile (oignons + HUD plus petits) */
+    @media (pointer: coarse) and (orientation: landscape){
+      :root{ --spriteSize: clamp(64px, 12vw, 110px); }
+      #hud{ padding:6px 8px; gap:8px; }
+      #hud .pill{ font-size:.9rem; padding:.2rem .5rem }
+      #hud button{ padding:.4rem .6rem; font-size:.9rem }
+    }
+
+
+    /* Mobile/coarse pointer tweaks */
+    @media (pointer: coarse){
+      :root{ --spriteSize: clamp(84px, 20vw, 160px); }
+      body{ cursor: default; }
+      #hud .pill{ font-size:1.05rem }
+      #hud button{ padding:.6rem .9rem }
+    }
   </style>
 </head>
 <body>
@@ -475,6 +491,30 @@
     }
   }
 
+  // --- Orientation mobile ---
+  function showRotateOverlay(){
+    overlayEl.classList.remove('hidden');
+    overlayEl.innerHTML = `
+      <div class="card">
+        <h1>Basculez pour jouer</h1>
+        <p>Tournez votre appareil en <strong>paysage</strong> pour démarrer.</p>
+      </div>`;
+  }
+
+  function handleOrientation(){
+    if(!isCoarse) return; // desktop: ne rien faire
+    const landscape = window.matchMedia('(orientation: landscape)').matches || innerWidth > innerHeight;
+    if(landscape){
+      overlayEl.classList.add('hidden');
+      // si le jeu n'est pas en cours, on démarre une nouvelle manche
+      if(!state.running){ restartGame(); }
+    } else {
+      // stop/pause
+      state.running = false;
+      showRotateOverlay();
+    }
+  }
+
   // --- Boucle de jeu ---
   function tick(t){
     if(!state.running){ state.lastTime = t; requestAnimationFrame(tick); return; }
@@ -524,8 +564,10 @@
   }
 
   // --- Gestion taille ---
-  function onResize(){ W = innerWidth; H = innerHeight; }
+  function onResize(){ W = innerWidth; H = innerHeight; if(isCoarse) handleOrientation(); }
   window.addEventListener('resize', onResize);
+  const mql = window.matchMedia('(orientation: landscape)');
+  mql.addEventListener?.('change', handleOrientation);
 
   // --- Contrôles ---
   startBtn?.addEventListener('click', startGame);
@@ -593,6 +635,8 @@
 
   // Lancer la boucle
   requestAnimationFrame(tick);
+  // Au chargement: gestion orientation mobile
+  if(isCoarse) handleOrientation();
   </script>
 </body>
 </html>
