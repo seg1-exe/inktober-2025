@@ -5,42 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Inktober 2025 - Jour 28</title>
   <style>
-    :root { --bg: #0b0b10; --fg: #ffffff; --px: 0px; --py: 0px; }
+    :root { --bg: #0b0b10; --fg: #ffffff; }
     html, body {
       height: 100%; margin: 0;
-      background: radial-gradient(1200px 600px at calc(70% + var(--px)) calc(-200px + var(--py)), #15151d 0%, var(--bg) 60%);
+      background: radial-gradient(1200px 600px at 70% -200px, #15151d 0%, var(--bg) 60%);
       overflow: hidden; color: var(--fg);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
     }
     #scene { position: fixed; inset: 0; }
     #scene canvas { width: 100% !important; height: 100% !important; display: block; background: transparent; cursor: crosshair; touch-action: none; }
     @media (pointer: coarse) { #scene canvas { cursor: default; } }
-
-    /* Indication légère pour activer AR (mobile) */
-    .ar-hint {
-      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); right: 10px; z-index: 20;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
-      padding: 8px 12px; border-radius: 999px; font-size: 12px; user-select: none;
-      backdrop-filter: blur(6px);
-    }
-    @media (pointer: fine) { .ar-hint { display: none; } }
-    .ar-hint.hidden { display: none; }
   </style>
 </head>
 <body>
   <div id="scene" aria-label="Simulation de pluie d'os responsive"></div>
-  <div id="ar-hint" class="ar-hint">Activer mode AR</div>
 
   <!-- Matter.js -->
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
   <script>
   (function(){
     'use strict';
-    // ================= RESPONSIVE + PERF + MODE AR ===========================
+    // ======================== RESPONSIVE + PERF ==============================
 
     const svgToURI = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
     // ---- SVGs (sans filtres, silhouettes affinées) -------------------------
+    // Fémur — 96x32
     const femurSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 32' width='96' height='32'>
       <g fill='#fff'>
@@ -52,6 +42,7 @@
       </g>
     </svg>`;
 
+    // Tibia — 26x96
     const tibiaSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 96' width='26' height='96'>
       <g fill='#fff'>
@@ -63,11 +54,12 @@
       </g>
     </svg>`;
 
+    // Crâne — 64x68
     const skullSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 68' width='64' height='68'>
       <g>
         <path fill='#fff' fill-rule='evenodd' d='
-          M32 4c-14 0-26 12-26 26 0 9 6 17 12 20v9h7v-6h4v6h7v-6h4 v6h7v-9c6-3 12-11 12-20 0-14-12-26-26-26z
+          M32 4c-14 0-26 12-26 26 0 9 6 17 12 20v9h7v-6h4v6h7v-6h4v6h7v-9c6-3 12-11 12-20 0-14-12-26-26-26z
           M20 28a6 6 0 1 0 0.01 0zm24 0a6 6 0 1 0 0.01 0zm-12 14c-3 0-5 2-5 4h10c0-2-2-4-5-4z' />
       </g>
     </svg>`;
@@ -89,10 +81,34 @@
 
       const isMobile = mmCoarse || smallW || shortH;
 
-      let profile = { sizeScale: 1.0, maxBones: 160, rain: 220, pushR: 76, posIter: 6, velIter: 4 };
-      if (isMobile) { profile.sizeScale = 0.92; profile.maxBones = 120; profile.rain = 280; profile.pushR = 64; profile.posIter = 5; profile.velIter = 3; }
-      if (weakCPU || lowMem) { profile.maxBones = Math.min(profile.maxBones, 120); profile.rain = Math.max(profile.rain, 300); profile.posIter = Math.min(profile.posIter, 5); profile.velIter = Math.min(profile.velIter, 3); }
-      if (reduceMotion) { profile.maxBones = Math.min(profile.maxBones, 100); profile.rain = Math.max(profile.rain, 340); }
+      // defaults (desktop)
+      let profile = {
+        sizeScale: 1.0,
+        maxBones: 160,
+        rain: 220,
+        pushR: 76,
+        posIter: 6,
+        velIter: 4
+      };
+
+      if (isMobile) {
+        profile.sizeScale = 0.92;
+        profile.maxBones = 120;
+        profile.rain = 280;
+        profile.pushR = 64;
+        profile.posIter = 5;
+        profile.velIter = 3;
+      }
+      if (weakCPU || lowMem) {
+        profile.maxBones = Math.min(profile.maxBones, 120);
+        profile.rain = Math.max(profile.rain, 300);
+        profile.posIter = Math.min(profile.posIter, 5);
+        profile.velIter = Math.min(profile.velIter, 3);
+      }
+      if (reduceMotion) {
+        profile.maxBones = Math.min(profile.maxBones, 100);
+        profile.rain = Math.max(profile.rain, 340);
+      }
       return profile;
     }
 
@@ -102,13 +118,18 @@
 
     const engine = Engine.create({ enableSleeping: true });
     const world = engine.world;
-    const BASE_G = 1.12;
-    world.gravity.y = BASE_G;
+    world.gravity.y = 1.12;
 
     const render = Render.create({
       element: sceneEl,
       engine,
-      options: { width: window.innerWidth, height: window.innerHeight, background: 'transparent', wireframes: false, pixelRatio: 1 }
+      options: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        background: 'transparent',
+        wireframes: false,
+        pixelRatio: 1
+      }
     });
     Render.run(render);
     const ctx = render.context; if (ctx) ctx.imageSmoothingEnabled = false;
@@ -130,33 +151,59 @@
 
     // --------- Profil courant + helpers -------------------------------------
     let profile = getProfile();
-    engine.positionIterations = profile.posIter; engine.velocityIterations = profile.velIter;
+    engine.positionIterations = profile.posIter;
+    engine.velocityIterations = profile.velIter;
 
-    function setRainInterval(ms){ if (ms === RAIN_INTERVAL) return; RAIN_INTERVAL = ms; clearInterval(rainTimer); rainTimer = setInterval(spawnBone, RAIN_INTERVAL); }
-    function scaledTypes(scale){ return BASE_TYPES.map(t => ({ ...t, w: t.w, h: t.h, svg: t.svg, hitScale: t.hitScale, spriteScale: scale })); }
+    function setRainInterval(ms){
+      if (ms === RAIN_INTERVAL) return;
+      RAIN_INTERVAL = ms; clearInterval(rainTimer); rainTimer = setInterval(spawnBone, RAIN_INTERVAL);
+    }
+
+    function scaledTypes(scale){
+      return BASE_TYPES.map(t => ({ ...t, w: t.w, h: t.h, svg: t.svg, hitScale: t.hitScale, spriteScale: scale }));
+    }
+
     let BONE_TYPES = scaledTypes(profile.sizeScale);
 
     // --------- Pluie d'os ----------------------------------------------------
     const bones = [];
     let MAX_BONES_LIMIT = profile.maxBones;
+
     const rnd = (min, max) => Math.random() * (max - min) + min;
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
     function makeBone(type, x, y) {
       const scale = (type.hitScale || 1) * (type.spriteScale || 1);
-      const bw = type.w * scale; const bh = type.h * scale;
+      const bw = type.w * scale;
+      const bh = type.h * scale;
       const body = Bodies.rectangle(x, y, bw, bh, {
-        restitution: 0.01, friction: 0.97, frictionStatic: 0.99, frictionAir: 0.025, density: 0.0019, sleepThreshold: 15,
-        render: { sprite: { texture: svgToURI(type.svg()), xScale: (type.spriteScale || 1), yScale: (type.spriteScale || 1) } }
+        restitution: 0.01,
+        friction: 0.97,
+        frictionStatic: 0.99,
+        frictionAir: 0.025,
+        density: 0.0019,
+        sleepThreshold: 15,
+        render: {
+          sprite: {
+            texture: svgToURI(type.svg()),
+            xScale: (type.spriteScale || 1),
+            yScale: (type.spriteScale || 1)
+          }
+        }
       });
       Body.setAngle(body, rnd(-Math.PI, Math.PI));
       return body;
     }
 
     function spawnBone() {
-      const w = render.options.width; const type = pick(BONE_TYPES);
-      const pad = 32 * (type.spriteScale || 1); const x = rnd(pad, w - pad); const y = -56 * (type.spriteScale || 1);
-      const b = makeBone(type, x, y); World.add(world, b); bones.push(b);
+      const w = render.options.width;
+      const type = pick(BONE_TYPES);
+      const pad = 32 * (type.spriteScale || 1);
+      const x = rnd(pad, w - pad);
+      const y = -56 * (type.spriteScale || 1);
+      const b = makeBone(type, x, y);
+      World.add(world, b);
+      bones.push(b);
       if (bones.length > MAX_BONES_LIMIT) { const old = bones.shift(); World.remove(world, old); }
     }
 
@@ -164,138 +211,122 @@
     let rainTimer = setInterval(spawnBone, RAIN_INTERVAL);
 
     // Interaction: ne pousse que les os proches
-    let PUSH_RADIUS = profile.pushR; const PUSH_STRENGTH = 0.00007;
+    let PUSH_RADIUS = profile.pushR;
+    const PUSH_STRENGTH = 0.00007;
+
     function pushFrom(x, y) {
-      const r = PUSH_RADIUS; const region = { min: { x: x - r, y: y - r }, max: { x: x + r, y: y + r } };
+      const r = PUSH_RADIUS;
+      const region = { min: { x: x - r, y: y - r }, max: { x: x + r, y: y + r } };
       const nearby = Query.region(bones, region);
       for (let i = 0; i < nearby.length; i++) {
-        const b = nearby[i]; const dx = b.position.x - x; const dy = b.position.y - y; const d2 = dx*dx + dy*dy;
-        if (d2 < r*r) { const d = Math.sqrt(d2) || 0.0001; const scale = (1 - d / r);
+        const b = nearby[i];
+        const dx = b.position.x - x;
+        const dy = b.position.y - y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < r*r) {
+          const d = Math.sqrt(d2) || 0.0001;
+          const scale = (1 - d / r);
           const fx = (dx / d) * PUSH_STRENGTH * b.mass * (0.6 + 0.4*Math.random()) * scale;
           const fy = (dy / d) * PUSH_STRENGTH * b.mass * (0.6 + 0.4*Math.random()) * scale;
-          Body.applyForce(b, b.position, { x: fx, y: fy }); if (Math.random() < 0.25) Body.setAngularVelocity(b, (Math.random()-0.5) * 0.5);
+          Body.applyForce(b, b.position, { x: fx, y: fy });
+          if (Math.random() < 0.25) Body.setAngularVelocity(b, (Math.random()-0.5) * 0.5);
         }
       }
     }
 
-    function getCanvasXY(evt) { const rect = render.canvas.getBoundingClientRect(); return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
-    render.canvas.addEventListener('pointermove', (e) => { const {x,y}=getCanvasXY(e); pushFrom(x,y); });
-    render.canvas.addEventListener('touchmove', (e) => { for (let i=0;i<e.touches.length;i++){ const t=e.touches[i]; const rect=render.canvas.getBoundingClientRect(); pushFrom(t.clientX-rect.left, t.clientY-rect.top);} }, { passive: true });
+    function getCanvasXY(evt) {
+      const rect = render.canvas.getBoundingClientRect();
+      return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
 
-    // Resize / orientation
+    render.canvas.addEventListener('pointermove', (e) => { const {x,y}=getCanvasXY(e); pushFrom(x,y); });
+    render.canvas.addEventListener('touchmove', (e) => {
+      for (const t of e.touches) { const rect = render.canvas.getBoundingClientRect(); pushFrom(t.clientX - rect.left, t.clientY - rect.top); }
+    }, { passive: true });
+
+    // Resize / orientation: recalcul du profil et adaptation douce
     let resizeTO = null;
-    function applyProfile(newP){ profile = newP; engine.positionIterations = profile.posIter; engine.velocityIterations = profile.velIter; setRainInterval(profile.rain); PUSH_RADIUS = profile.pushR; MAX_BONES_LIMIT = profile.maxBones; BONE_TYPES = scaledTypes(profile.sizeScale); }
-    function handleResize() { render.canvas.width = window.innerWidth; render.canvas.height = window.innerHeight; render.options.width = window.innerWidth; render.options.height = window.innerHeight; removeBounds(); addBounds(); const newProfile = getProfile(); applyProfile(newProfile); }
+    function applyProfile(newP){
+      profile = newP;
+      engine.positionIterations = profile.posIter;
+      engine.velocityIterations = profile.velIter;
+      setRainInterval(profile.rain);
+      PUSH_RADIUS = profile.pushR;
+      MAX_BONES_LIMIT = profile.maxBones;
+      BONE_TYPES = scaledTypes(profile.sizeScale);
+    }
+
+    function handleResize() {
+      render.canvas.width = window.innerWidth;
+      render.canvas.height = window.innerHeight;
+      render.options.width = window.innerWidth;
+      render.options.height = window.innerHeight;
+      removeBounds(); addBounds();
+      const newProfile = getProfile();
+      applyProfile(newProfile);
+    }
     window.addEventListener('resize', () => { clearTimeout(resizeTO); resizeTO = setTimeout(handleResize, 120); });
     window.addEventListener('orientationchange', () => { clearTimeout(resizeTO); resizeTO = setTimeout(handleResize, 120); });
 
-    // Auto-throttle FPS
+    // Auto-throttle FPS (comme v4)
     let fpsEMA = 60;
     Events.on(engine, 'afterUpdate', () => {
       const dt = engine.timing.lastDelta || 16.7; const fps = 1000 / dt; fpsEMA = fpsEMA * 0.9 + fps * 0.1;
-      if (fpsEMA < 50) { setRainInterval(Math.max(300, RAIN_INTERVAL + 40)); if (bones.length > MAX_BONES_LIMIT - 8) { for (let i = 0; i < 8 && bones.length; i++){ const old=bones.shift(); World.remove(world, old); } } MAX_BONES_LIMIT = Math.max(100, MAX_BONES_LIMIT - 1); }
-      else if (fpsEMA > 58 && MAX_BONES_LIMIT < profile.maxBones) { setRainInterval(profile.rain); MAX_BONES_LIMIT += 1; }
-      // GC hors cadre
-      const h = render.options.height; const w = render.options.width; for (let i = bones.length - 1; i >= 0; i--) { const b = bones[i]; if (b.position.y > h + 800 || Math.abs(b.position.x) > w + 800) { bones.splice(i, 1); World.remove(world, b); } }
-    });
-
-    // ========================= MODE AR FUN ===================================
-    const arHint = document.getElementById('ar-hint');
-    let arEnabled = false; let haveDO = 'DeviceOrientationEvent' in window; let haveDM = 'DeviceMotionEvent' in window;
-
-    async function requestMotionPermission() {
-      try {
-        // iOS 13+
-        if (haveDO && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const s = await DeviceOrientationEvent.requestPermission(); if (s !== 'granted') return false;
-        }
-        if (haveDM && typeof DeviceMotionEvent.requestPermission === 'function') {
-          const s2 = await DeviceMotionEvent.requestPermission(); /* ignore result */
-        }
-        return true;
-      } catch (e) { return false; }
-    }
-
-    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-
-    function onDeviceOrientation(e){ if (!arEnabled) return; const beta = (e.beta || 0); const gamma = (e.gamma || 0); const rad = Math.PI/180;
-      const gx = BASE_G * 0.9 * Math.sin(gamma * rad); // gauche/droite
-      const gy = BASE_G * (1.0 + 0.18 * Math.sin(beta * rad)); // avant/arrière
-      world.gravity.x = clamp(gx, -BASE_G, BASE_G);
-      world.gravity.y = clamp(gy, 0.5*BASE_G, 1.5*BASE_G);
-      // Parallaxe douce du fond
-      const px = (world.gravity.x / BASE_G) * 40; const py = ((world.gravity.y - BASE_G) / BASE_G) * 60; document.documentElement.style.setProperty('--px', px.toFixed(1)+'px'); document.documentElement.style.setProperty('--py', py.toFixed(1)+'px');
-    }
-
-    let lastShake = 0;
-    function onDeviceMotion(e){ if (!arEnabled) return; const a = e.accelerationIncludingGravity || e.acceleration; if (!a) return; const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2); const now = performance.now(); if (mag > 20 && now - lastShake > 700) { lastShake = now; for (let i=0;i<3;i++) spawnBone(); } }
-
-    async function enableAR(){ if (arEnabled) return; let ok = true; if ((haveDO && typeof DeviceOrientationEvent.requestPermission === 'function') || (haveDM && typeof DeviceMotionEvent.requestPermission === 'function')) { ok = await requestMotionPermission(); }
-      if (!ok) { // fallback: pseudo-AR avec la souris (desktop)
-        window.addEventListener('mousemove', desktopTilt, { passive: true }); arHint.classList.add('hidden'); arEnabled = true; return;
+      if (fpsEMA < 50) {
+        setRainInterval(Math.max(300, RAIN_INTERVAL + 40));
+        if (bones.length > MAX_BONES_LIMIT - 8) { for (let i = 0; i < 8 && bones.length; i++){ const old=bones.shift(); World.remove(world, old); } }
+        MAX_BONES_LIMIT = Math.max(100, MAX_BONES_LIMIT - 1);
+      } else if (fpsEMA > 58 && MAX_BONES_LIMIT < profile.maxBones) {
+        setRainInterval(profile.rain);
+        MAX_BONES_LIMIT += 1;
       }
-      window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true });
-      window.addEventListener('devicemotion', onDeviceMotion, { passive: true });
-      arHint.classList.add('hidden'); arEnabled = true;
-    }
-
-    function desktopTilt(e){ const w = render.options.width; const x = (e.clientX / w - 0.5); world.gravity.x = clamp(x * 1.2, -BASE_G, BASE_G); const px = clamp(x, -0.5, 0.5) * 40; document.documentElement.style.setProperty('--px', px.toFixed(1)+'px'); }
-
-    // Activer au premier tap/clic sur mobile
-    arHint.addEventListener('click', enableAR, { passive: true });
-    document.body.addEventListener('touchend', () => { if (!arEnabled) enableAR(); }, { passive: true });
-
-    // Si pas d'API capteurs et pointer fine: activer pseudo-AR direct
-    if (!haveDO && matchMedia('(pointer: fine)').matches) { arHint.classList.add('hidden'); window.addEventListener('mousemove', desktopTilt, { passive: true }); arEnabled = true; }
+      // GC hors cadre
+      const h = render.options.height; const w = render.options.width;
+      for (let i = bones.length - 1; i >= 0; i--) {
+        const b = bones[i];
+        if (b.position.y > h + 800 || Math.abs(b.position.x) > w + 800) { bones.splice(i, 1); World.remove(world, b); }
+      }
+    });
 
     // Amorçage initial
     for (let i = 0; i < Math.min(16, MAX_BONES_LIMIT/8); i++) spawnBone();
   })();
   </script>
 </body>
-</html><!DOCTYPE html>
+</html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Pluie d'os — v6 (mode AR fun + responsive)</title>
+  <title>Pluie d'os — v7 (responsive, sans AR)</title>
   <style>
-    :root { --bg: #0b0b10; --fg: #ffffff; --px: 0px; --py: 0px; }
+    :root { --bg: #0b0b10; --fg: #ffffff; }
     html, body {
       height: 100%; margin: 0;
-      background: radial-gradient(1200px 600px at calc(70% + var(--px)) calc(-200px + var(--py)), #15151d 0%, var(--bg) 60%);
+      background: radial-gradient(1200px 600px at 70% -200px, #15151d 0%, var(--bg) 60%);
       overflow: hidden; color: var(--fg);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
     }
     #scene { position: fixed; inset: 0; }
     #scene canvas { width: 100% !important; height: 100% !important; display: block; background: transparent; cursor: crosshair; touch-action: none; }
     @media (pointer: coarse) { #scene canvas { cursor: default; } }
-
-    /* Indication légère pour activer AR (mobile) */
-    .ar-hint {
-      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 10px); right: 10px; z-index: 20;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
-      padding: 8px 12px; border-radius: 999px; font-size: 12px; user-select: none;
-      backdrop-filter: blur(6px);
-    }
-    @media (pointer: fine) { .ar-hint { display: none; } }
-    .ar-hint.hidden { display: none; }
   </style>
 </head>
 <body>
   <div id="scene" aria-label="Simulation de pluie d'os responsive"></div>
-  <div id="ar-hint" class="ar-hint">Activer mode AR</div>
 
   <!-- Matter.js -->
   <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
   <script>
   (function(){
     'use strict';
-    // ================= RESPONSIVE + PERF + MODE AR ===========================
+    // ======================== RESPONSIVE + PERF ==============================
 
     const svgToURI = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
     // ---- SVGs (sans filtres, silhouettes affinées) -------------------------
+    // Fémur — 96x32
     const femurSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 32' width='96' height='32'>
       <g fill='#fff'>
@@ -307,6 +338,7 @@
       </g>
     </svg>`;
 
+    // Tibia — 26x96
     const tibiaSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 96' width='26' height='96'>
       <g fill='#fff'>
@@ -318,11 +350,12 @@
       </g>
     </svg>`;
 
+    // Crâne — 64x68
     const skullSVG = () => `
     <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 68' width='64' height='68'>
       <g>
         <path fill='#fff' fill-rule='evenodd' d='
-          M32 4c-14 0-26 12-26 26 0 9 6 17 12 20v9h7v-6h4v6h7v-6h4 v6h7v-9c6-3 12-11 12-20 0-14-12-26-26-26z
+          M32 4c-14 0-26 12-26 26 0 9 6 17 12 20v9h7v-6h4v6h7v-6h4v6h7v-9c6-3 12-11 12-20 0-14-12-26-26-26z
           M20 28a6 6 0 1 0 0.01 0zm24 0a6 6 0 1 0 0.01 0zm-12 14c-3 0-5 2-5 4h10c0-2-2-4-5-4z' />
       </g>
     </svg>`;
@@ -344,10 +377,34 @@
 
       const isMobile = mmCoarse || smallW || shortH;
 
-      let profile = { sizeScale: 1.0, maxBones: 160, rain: 220, pushR: 76, posIter: 6, velIter: 4 };
-      if (isMobile) { profile.sizeScale = 0.92; profile.maxBones = 120; profile.rain = 280; profile.pushR = 64; profile.posIter = 5; profile.velIter = 3; }
-      if (weakCPU || lowMem) { profile.maxBones = Math.min(profile.maxBones, 120); profile.rain = Math.max(profile.rain, 300); profile.posIter = Math.min(profile.posIter, 5); profile.velIter = Math.min(profile.velIter, 3); }
-      if (reduceMotion) { profile.maxBones = Math.min(profile.maxBones, 100); profile.rain = Math.max(profile.rain, 340); }
+      // defaults (desktop)
+      let profile = {
+        sizeScale: 1.0,
+        maxBones: 160,
+        rain: 220,
+        pushR: 76,
+        posIter: 6,
+        velIter: 4
+      };
+
+      if (isMobile) {
+        profile.sizeScale = 0.92;
+        profile.maxBones = 120;
+        profile.rain = 280;
+        profile.pushR = 64;
+        profile.posIter = 5;
+        profile.velIter = 3;
+      }
+      if (weakCPU || lowMem) {
+        profile.maxBones = Math.min(profile.maxBones, 120);
+        profile.rain = Math.max(profile.rain, 300);
+        profile.posIter = Math.min(profile.posIter, 5);
+        profile.velIter = Math.min(profile.velIter, 3);
+      }
+      if (reduceMotion) {
+        profile.maxBones = Math.min(profile.maxBones, 100);
+        profile.rain = Math.max(profile.rain, 340);
+      }
       return profile;
     }
 
@@ -357,13 +414,18 @@
 
     const engine = Engine.create({ enableSleeping: true });
     const world = engine.world;
-    const BASE_G = 1.12;
-    world.gravity.y = BASE_G;
+    world.gravity.y = 1.12;
 
     const render = Render.create({
       element: sceneEl,
       engine,
-      options: { width: window.innerWidth, height: window.innerHeight, background: 'transparent', wireframes: false, pixelRatio: 1 }
+      options: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        background: 'transparent',
+        wireframes: false,
+        pixelRatio: 1
+      }
     });
     Render.run(render);
     const ctx = render.context; if (ctx) ctx.imageSmoothingEnabled = false;
@@ -385,33 +447,59 @@
 
     // --------- Profil courant + helpers -------------------------------------
     let profile = getProfile();
-    engine.positionIterations = profile.posIter; engine.velocityIterations = profile.velIter;
+    engine.positionIterations = profile.posIter;
+    engine.velocityIterations = profile.velIter;
 
-    function setRainInterval(ms){ if (ms === RAIN_INTERVAL) return; RAIN_INTERVAL = ms; clearInterval(rainTimer); rainTimer = setInterval(spawnBone, RAIN_INTERVAL); }
-    function scaledTypes(scale){ return BASE_TYPES.map(t => ({ ...t, w: t.w, h: t.h, svg: t.svg, hitScale: t.hitScale, spriteScale: scale })); }
+    function setRainInterval(ms){
+      if (ms === RAIN_INTERVAL) return;
+      RAIN_INTERVAL = ms; clearInterval(rainTimer); rainTimer = setInterval(spawnBone, RAIN_INTERVAL);
+    }
+
+    function scaledTypes(scale){
+      return BASE_TYPES.map(t => ({ ...t, w: t.w, h: t.h, svg: t.svg, hitScale: t.hitScale, spriteScale: scale }));
+    }
+
     let BONE_TYPES = scaledTypes(profile.sizeScale);
 
     // --------- Pluie d'os ----------------------------------------------------
     const bones = [];
     let MAX_BONES_LIMIT = profile.maxBones;
+
     const rnd = (min, max) => Math.random() * (max - min) + min;
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
     function makeBone(type, x, y) {
       const scale = (type.hitScale || 1) * (type.spriteScale || 1);
-      const bw = type.w * scale; const bh = type.h * scale;
+      const bw = type.w * scale;
+      const bh = type.h * scale;
       const body = Bodies.rectangle(x, y, bw, bh, {
-        restitution: 0.01, friction: 0.97, frictionStatic: 0.99, frictionAir: 0.025, density: 0.0019, sleepThreshold: 15,
-        render: { sprite: { texture: svgToURI(type.svg()), xScale: (type.spriteScale || 1), yScale: (type.spriteScale || 1) } }
+        restitution: 0.01,
+        friction: 0.97,
+        frictionStatic: 0.99,
+        frictionAir: 0.025,
+        density: 0.0019,
+        sleepThreshold: 15,
+        render: {
+          sprite: {
+            texture: svgToURI(type.svg()),
+            xScale: (type.spriteScale || 1),
+            yScale: (type.spriteScale || 1)
+          }
+        }
       });
       Body.setAngle(body, rnd(-Math.PI, Math.PI));
       return body;
     }
 
     function spawnBone() {
-      const w = render.options.width; const type = pick(BONE_TYPES);
-      const pad = 32 * (type.spriteScale || 1); const x = rnd(pad, w - pad); const y = -56 * (type.spriteScale || 1);
-      const b = makeBone(type, x, y); World.add(world, b); bones.push(b);
+      const w = render.options.width;
+      const type = pick(BONE_TYPES);
+      const pad = 32 * (type.spriteScale || 1);
+      const x = rnd(pad, w - pad);
+      const y = -56 * (type.spriteScale || 1);
+      const b = makeBone(type, x, y);
+      World.add(world, b);
+      bones.push(b);
       if (bones.length > MAX_BONES_LIMIT) { const old = bones.shift(); World.remove(world, old); }
     }
 
@@ -419,89 +507,82 @@
     let rainTimer = setInterval(spawnBone, RAIN_INTERVAL);
 
     // Interaction: ne pousse que les os proches
-    let PUSH_RADIUS = profile.pushR; const PUSH_STRENGTH = 0.00007;
+    let PUSH_RADIUS = profile.pushR;
+    const PUSH_STRENGTH = 0.00007;
+
     function pushFrom(x, y) {
-      const r = PUSH_RADIUS; const region = { min: { x: x - r, y: y - r }, max: { x: x + r, y: y + r } };
+      const r = PUSH_RADIUS;
+      const region = { min: { x: x - r, y: y - r }, max: { x: x + r, y: y + r } };
       const nearby = Query.region(bones, region);
       for (let i = 0; i < nearby.length; i++) {
-        const b = nearby[i]; const dx = b.position.x - x; const dy = b.position.y - y; const d2 = dx*dx + dy*dy;
-        if (d2 < r*r) { const d = Math.sqrt(d2) || 0.0001; const scale = (1 - d / r);
+        const b = nearby[i];
+        const dx = b.position.x - x;
+        const dy = b.position.y - y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < r*r) {
+          const d = Math.sqrt(d2) || 0.0001;
+          const scale = (1 - d / r);
           const fx = (dx / d) * PUSH_STRENGTH * b.mass * (0.6 + 0.4*Math.random()) * scale;
           const fy = (dy / d) * PUSH_STRENGTH * b.mass * (0.6 + 0.4*Math.random()) * scale;
-          Body.applyForce(b, b.position, { x: fx, y: fy }); if (Math.random() < 0.25) Body.setAngularVelocity(b, (Math.random()-0.5) * 0.5);
+          Body.applyForce(b, b.position, { x: fx, y: fy });
+          if (Math.random() < 0.25) Body.setAngularVelocity(b, (Math.random()-0.5) * 0.5);
         }
       }
     }
 
-    function getCanvasXY(evt) { const rect = render.canvas.getBoundingClientRect(); return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; }
-    render.canvas.addEventListener('pointermove', (e) => { const {x,y}=getCanvasXY(e); pushFrom(x,y); });
-    render.canvas.addEventListener('touchmove', (e) => { for (let i=0;i<e.touches.length;i++){ const t=e.touches[i]; const rect=render.canvas.getBoundingClientRect(); pushFrom(t.clientX-rect.left, t.clientY-rect.top);} }, { passive: true });
+    function getCanvasXY(evt) {
+      const rect = render.canvas.getBoundingClientRect();
+      return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+    }
 
-    // Resize / orientation
+    render.canvas.addEventListener('pointermove', (e) => { const {x,y}=getCanvasXY(e); pushFrom(x,y); });
+    render.canvas.addEventListener('touchmove', (e) => {
+      for (const t of e.touches) { const rect = render.canvas.getBoundingClientRect(); pushFrom(t.clientX - rect.left, t.clientY - rect.top); }
+    }, { passive: true });
+
+    // Resize / orientation: recalcul du profil et adaptation douce
     let resizeTO = null;
-    function applyProfile(newP){ profile = newP; engine.positionIterations = profile.posIter; engine.velocityIterations = profile.velIter; setRainInterval(profile.rain); PUSH_RADIUS = profile.pushR; MAX_BONES_LIMIT = profile.maxBones; BONE_TYPES = scaledTypes(profile.sizeScale); }
-    function handleResize() { render.canvas.width = window.innerWidth; render.canvas.height = window.innerHeight; render.options.width = window.innerWidth; render.options.height = window.innerHeight; removeBounds(); addBounds(); const newProfile = getProfile(); applyProfile(newProfile); }
+    function applyProfile(newP){
+      profile = newP;
+      engine.positionIterations = profile.posIter;
+      engine.velocityIterations = profile.velIter;
+      setRainInterval(profile.rain);
+      PUSH_RADIUS = profile.pushR;
+      MAX_BONES_LIMIT = profile.maxBones;
+      BONE_TYPES = scaledTypes(profile.sizeScale);
+    }
+
+    function handleResize() {
+      render.canvas.width = window.innerWidth;
+      render.canvas.height = window.innerHeight;
+      render.options.width = window.innerWidth;
+      render.options.height = window.innerHeight;
+      removeBounds(); addBounds();
+      const newProfile = getProfile();
+      applyProfile(newProfile);
+    }
     window.addEventListener('resize', () => { clearTimeout(resizeTO); resizeTO = setTimeout(handleResize, 120); });
     window.addEventListener('orientationchange', () => { clearTimeout(resizeTO); resizeTO = setTimeout(handleResize, 120); });
 
-    // Auto-throttle FPS
+    // Auto-throttle FPS (comme v4)
     let fpsEMA = 60;
     Events.on(engine, 'afterUpdate', () => {
       const dt = engine.timing.lastDelta || 16.7; const fps = 1000 / dt; fpsEMA = fpsEMA * 0.9 + fps * 0.1;
-      if (fpsEMA < 50) { setRainInterval(Math.max(300, RAIN_INTERVAL + 40)); if (bones.length > MAX_BONES_LIMIT - 8) { for (let i = 0; i < 8 && bones.length; i++){ const old=bones.shift(); World.remove(world, old); } } MAX_BONES_LIMIT = Math.max(100, MAX_BONES_LIMIT - 1); }
-      else if (fpsEMA > 58 && MAX_BONES_LIMIT < profile.maxBones) { setRainInterval(profile.rain); MAX_BONES_LIMIT += 1; }
-      // GC hors cadre
-      const h = render.options.height; const w = render.options.width; for (let i = bones.length - 1; i >= 0; i--) { const b = bones[i]; if (b.position.y > h + 800 || Math.abs(b.position.x) > w + 800) { bones.splice(i, 1); World.remove(world, b); } }
-    });
-
-    // ========================= MODE AR FUN ===================================
-    const arHint = document.getElementById('ar-hint');
-    let arEnabled = false; let haveDO = 'DeviceOrientationEvent' in window; let haveDM = 'DeviceMotionEvent' in window;
-
-    async function requestMotionPermission() {
-      try {
-        // iOS 13+
-        if (haveDO && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const s = await DeviceOrientationEvent.requestPermission(); if (s !== 'granted') return false;
-        }
-        if (haveDM && typeof DeviceMotionEvent.requestPermission === 'function') {
-          const s2 = await DeviceMotionEvent.requestPermission(); /* ignore result */
-        }
-        return true;
-      } catch (e) { return false; }
-    }
-
-    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-
-    function onDeviceOrientation(e){ if (!arEnabled) return; const beta = (e.beta || 0); const gamma = (e.gamma || 0); const rad = Math.PI/180;
-      const gx = BASE_G * 0.9 * Math.sin(gamma * rad); // gauche/droite
-      const gy = BASE_G * (1.0 + 0.18 * Math.sin(beta * rad)); // avant/arrière
-      world.gravity.x = clamp(gx, -BASE_G, BASE_G);
-      world.gravity.y = clamp(gy, 0.5*BASE_G, 1.5*BASE_G);
-      // Parallaxe douce du fond
-      const px = (world.gravity.x / BASE_G) * 40; const py = ((world.gravity.y - BASE_G) / BASE_G) * 60; document.documentElement.style.setProperty('--px', px.toFixed(1)+'px'); document.documentElement.style.setProperty('--py', py.toFixed(1)+'px');
-    }
-
-    let lastShake = 0;
-    function onDeviceMotion(e){ if (!arEnabled) return; const a = e.accelerationIncludingGravity || e.acceleration; if (!a) return; const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2); const now = performance.now(); if (mag > 20 && now - lastShake > 700) { lastShake = now; for (let i=0;i<3;i++) spawnBone(); } }
-
-    async function enableAR(){ if (arEnabled) return; let ok = true; if ((haveDO && typeof DeviceOrientationEvent.requestPermission === 'function') || (haveDM && typeof DeviceMotionEvent.requestPermission === 'function')) { ok = await requestMotionPermission(); }
-      if (!ok) { // fallback: pseudo-AR avec la souris (desktop)
-        window.addEventListener('mousemove', desktopTilt, { passive: true }); arHint.classList.add('hidden'); arEnabled = true; return;
+      if (fpsEMA < 50) {
+        setRainInterval(Math.max(300, RAIN_INTERVAL + 40));
+        if (bones.length > MAX_BONES_LIMIT - 8) { for (let i = 0; i < 8 && bones.length; i++){ const old=bones.shift(); World.remove(world, old); } }
+        MAX_BONES_LIMIT = Math.max(100, MAX_BONES_LIMIT - 1);
+      } else if (fpsEMA > 58 && MAX_BONES_LIMIT < profile.maxBones) {
+        setRainInterval(profile.rain);
+        MAX_BONES_LIMIT += 1;
       }
-      window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true });
-      window.addEventListener('devicemotion', onDeviceMotion, { passive: true });
-      arHint.classList.add('hidden'); arEnabled = true;
-    }
-
-    function desktopTilt(e){ const w = render.options.width; const x = (e.clientX / w - 0.5); world.gravity.x = clamp(x * 1.2, -BASE_G, BASE_G); const px = clamp(x, -0.5, 0.5) * 40; document.documentElement.style.setProperty('--px', px.toFixed(1)+'px'); }
-
-    // Activer au premier tap/clic sur mobile
-    arHint.addEventListener('click', enableAR, { passive: true });
-    document.body.addEventListener('touchend', () => { if (!arEnabled) enableAR(); }, { passive: true });
-
-    // Si pas d'API capteurs et pointer fine: activer pseudo-AR direct
-    if (!haveDO && matchMedia('(pointer: fine)').matches) { arHint.classList.add('hidden'); window.addEventListener('mousemove', desktopTilt, { passive: true }); arEnabled = true; }
+      // GC hors cadre
+      const h = render.options.height; const w = render.options.width;
+      for (let i = bones.length - 1; i >= 0; i--) {
+        const b = bones[i];
+        if (b.position.y > h + 800 || Math.abs(b.position.x) > w + 800) { bones.splice(i, 1); World.remove(world, b); }
+      }
+    });
 
     // Amorçage initial
     for (let i = 0; i < Math.min(16, MAX_BONES_LIMIT/8); i++) spawnBone();
