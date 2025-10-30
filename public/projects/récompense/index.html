@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inktober 2025 - Jour 31</title>
+  <meta name="theme-color" content="#000000" />
+  <!-- Confettis -->
+  <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <style>
+    /* ============================================================
+       THEME MINIMALISTE NOIR & BLANC
+       ============================================================ */
+    :root{
+      --bg:#ffffff;
+      --fg:#111111;
+      --muted:#5c5c5c;
+      --line:#e6e6e6;
+      --ok:#0a7d2e;
+      --ko:#b00020;
+      --radius:14px;
+    }
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      line-height:1.35;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    .container{ max-width:960px; margin:0 auto; padding:clamp(16px,3vw,28px); }
+    h1,h2,h3{ margin:0 0 .6rem }
+    h1{ font-size: clamp(1.6rem, 2.2vw + 1rem, 2.6rem); font-weight:800; letter-spacing:.1px }
+    p.lead{ color:var(--muted); margin:.2rem 0 1.2rem }
+
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      padding: clamp(14px, 2vw, 22px);
+      background:#fff;
+    }
+    .grid{ display:grid; gap:clamp(12px,2.2vw,18px); grid-template-columns: repeat(2, minmax(0,1fr)); }
+    @media (max-width:640px){ .grid{ grid-template-columns: 1fr; } }
+
+    button,.btn{
+      appearance:none;
+      border:1px solid #000;
+      background:#000;
+      color:#fff;
+      border-radius: 999px;
+      padding:.85rem 1.1rem;
+      font-weight:700;
+      font-size:1rem;
+      cursor:pointer;
+      width:100%;
+      transition: transform .06s ease, background .12s ease, color .12s ease;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:hover{ transform: translateY(1px) }
+    button:active{ transform: translateY(2px) }
+    .btn-outline{ background:#fff; color:#000; border-color:#000; }
+    .btn-ghost{ background:#fff; color:#000; border-color: var(--line); }
+
+    input[type="text"]{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius: 10px;
+      padding:.9rem 1rem;
+      font-size:1rem;
+      outline:none;
+      background:#fff;
+      color:var(--fg);
+    }
+    input[type="text"]:focus{ border-color:#000; box-shadow: 0 0 0 3px rgba(0,0,0,.06) }
+
+    .screens{ position:relative; min-height:60vh }
+    .screen{
+      position:absolute; inset:0; opacity:0; pointer-events:none; transform: translateY(6px);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .screen.active{ opacity:1; pointer-events:auto; transform:none }
+
+    .statusbar{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      font-size:.95rem; color:#333; margin: 4px 0 12px;
+      border-bottom: 1px solid var(--line); padding-bottom:8px;
+    }
+    .question{ font-size: clamp(1.1rem, 1.2rem + .6vw, 1.5rem); margin: 10px 0; }
+    .rebus{
+      font-size: clamp(1.3rem, 1.2rem + 1.1vw, 1.8rem);
+      display:inline-block; padding:.35rem .6rem; border:1px dashed var(--line); border-radius:10px;
+    }
+    .hint{
+      display:none; margin-top:10px; border-left:3px solid #000; padding:.6rem .8rem; background:#fafafa
+    }
+    .feedback{ min-height:22px; margin-top:8px; font-weight:700 }
+    .ok{ color: var(--ok) } .ko{ color: var(--ko) } .warn{ color:#8a6a00 }
+
+    /* Zone vidéo : hauteur fixe responsive, média centré (height:100%; width:auto) */
+    .video-wrap{
+      width:100%;
+      height:min(60vh, 560px);
+      border:1px solid var(--line);
+      border-radius:10px;
+      overflow:hidden;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+    }
+    .video-wrap iframe,
+    .video-wrap video,
+    .video-wrap img{
+      height:100%;
+      width:auto;
+      max-width:100%;
+      display:block;
+      object-fit:contain;
+    }
+
+    /* Bouton d’amorçage du son (si le navigateur bloque l’auto-play avec son) */
+    .sound-nudge{
+      position:absolute; inset:auto 12px 12px auto;
+      border:1px solid #000; background:#fff; color:#000; border-radius:999px; padding:.5rem .8rem;
+      font-weight:700; cursor:pointer; display:none;
+    }
+
+    .toolbar{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:14px }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="card" style="margin-bottom:14px">
+      <h1>Deviens un vrai iPad kid&nbsp;!</h1>
+      <p class="lead">3 essais, un indice accessible, et du brainrot</p>
+    </header>
+
+    <main class="screens">
+      <!-- ACCUEIL -->
+      <section id="home" class="screen active" aria-labelledby="title-home">
+        <div class="grid">
+          <div class="card">
+            <h2 id="title-home">Commencer</h2>
+            <p class="lead">Choisis une catégorie :</p>
+            <div class="grid">
+              <button onclick="startGame('math')">Mathématiques</button>
+              <button onclick="startGame('riddle')">Devinettes</button>
+              <button onclick="startGame('rebus')">Rébus</button>
+              <button class="btn-outline" onclick="startGame('random')">Surprise</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Rappels</h3>
+            <p class="lead">Indice accessible. Au bout de 3 erreurs, la solution s’affiche.</p>
+            <ul style="margin:.2rem 0 0.2rem; padding-left: 1.1rem; color:#333">
+              <li>Réponses insensibles à la casse/accents.</li>
+              <li>Rébus : attention aux espaces.</li>
+              <li>Récompense : vidéo (avec son) + confettis.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- JEU -->
+      <section id="game" class="screen" aria-labelledby="title-game">
+        <div class="card">
+          <div class="statusbar" role="status" aria-live="polite">
+            <div class="cat"><span id="game-cat">—</span></div>
+            <div class="tries">Essais restants : <b id="tries">3</b></div>
+          </div>
+
+          <h2 id="title-game">Ton énigme</h2>
+          <div class="question" id="question">…</div>
+
+          <label for="answer" class="sr-only" style="position:absolute; left:-9999px;">Ta réponse</label>
+          <input id="answer" type="text" placeholder="Ta réponse…" autocomplete="off" inputmode="text" />
+
+          <div class="toolbar">
+            <button onclick="checkAnswer()">Valider</button>
+            <!-- Sémantique : bouton qui contrôle l’aside d’indice -->
+            <button id="hint-btn" class="btn-ghost" aria-controls="hint" aria-expanded="false" onclick="toggleHint()">Indice</button>
+            <button class="btn-ghost" onclick="backHome()">Accueil</button>
+          </div>
+
+          <!-- Indice sémantique et accessible -->
+          <aside id="hint" class="hint" role="note" aria-live="polite" aria-hidden="true"></aside>
+
+          <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- RECOMPENSE -->
+      <section id="reward" class="screen" aria-labelledby="title-reward">
+        <div class="card">
+          <h2 id="title-reward">Bravo&nbsp;! Récompense débloquée</h2>
+          <p class="lead">Profite du brainrot, puis enchaîne une autre énigme.</p>
+          <div class="video-wrap" id="video-reward" title="Récompense vidéo">
+            <button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Activer le son</button>
+          </div>
+          <div class="toolbar">
+            <button onclick="startGame('random')">Nouvelle énigme (Surprise)</button>
+            <button class="btn-outline" onclick="goCategory()" id="again-same">Rejouer même catégorie</button>
+            <button class="btn-ghost" onclick="copyVideoLink()">Partager la vidéo</button>
+          </div>
+          <div id="copy-state" class="feedback" style="text-align:center"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ============================================================
+    //  UTILITAIRES D'UI
+    // ============================================================
+    const $ = (sel) => document.querySelector(sel);
+    const screens = { home: $("#home"), game: $("#game"), reward: $("#reward") };
+    function showScreen(name){
+      for (const k in screens){ screens[k].classList.remove("active"); }
+      screens[name].classList.add("active");
+      if (navigator.vibrate) try{ navigator.vibrate(6); }catch(e){}
+    }
+    const normalize = (s) => (s ?? "").toString().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/['’`´]/g,"").replace(/\s+/g," ").trim();
+    const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
+
+    // ============================================================
+    //  SONS (Web Audio)
+    // ============================================================
+    let audio;
+    function getAC(){
+      if (!audio){
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const master = ctx.createGain(); master.gain.value = 0.08; master.connect(ctx.destination);
+        audio = { ctx, master };
+      }
+      return audio;
+    }
+    function playOk(){
+      const {ctx, master} = getAC(); const now = ctx.currentTime;
+      [880,1320,1760].forEach((f,i)=>{
+        const o=ctx.createOscillator(), g=ctx.createGain();
+        o.type="sine"; o.frequency.value=f;
+        g.gain.setValueAtTime(0,now);
+        g.gain.linearRampToValueAtTime(0.45, now+.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+.20+i*0.04);
+        o.connect(g); g.connect(master); o.start(now+i*0.03); o.stop(now+.28+i*0.04);
+      });
+    }
+    function playKo(){
+      const {ctx, master} = getAC(); const now = ctx.currentTime;
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.type="square"; o.frequency.setValueAtTime(160, now);
+      o.frequency.exponentialRampToValueAtTime(60, now+.22);
+      g.gain.setValueAtTime(0.45, now); g.gain.exponentialRampToValueAtTime(0.0001, now+.24);
+      o.connect(g); g.connect(master); o.start(now); o.stop(now+.26);
+    }
+
+    // ============================================================
+    //  BANQUE D'ENIGMES
+    // ============================================================
+    const bankMath = [
+      { question: "Résous : 2x + 3 = 7. Trouve x.", answer: "2", hint: "Soustrais 3 puis divise par 2." },
+      { question: "Quel est le résultat de 7 × 8 ?", answer: "56", hint: "Table de 7." },
+      { question: "Si 3 chats attrapent 3 souris en 3 minutes, combien de chats pour attraper 100 souris en 100 minutes ?", answer: "3", hint: "Le rythme est linéaire par chat." },
+      { question: "50 % de 2 vaut 2 % de quel nombre ?", answer: "50", hint: "0,5 × 2 = 1, donc 0,02 × ? = 1." },
+      { question: "Une pizza de 30 cm vaut 12 €. À prix proportionnel à la surface, combien coûte une pizza de 60 cm ?", answer: "48", aliases:["48€","48 euros","48e"], hint: "Surface ∝ diamètre². ×4." },
+    ];
+    const bankRiddle = [
+      { question: "Je suis toujours devant toi mais on ne peut jamais me voir. Qui suis-je ?", answer: "l'avenir", aliases:["avenir"], hint: "Pense au temps." },
+      { question: "Qu'est-ce qui peut traverser une vitre sans la briser ?", answer: "la lumiere", aliases:["lumiere","lumière", "la lumière"], hint: "Ondes..." },
+      { question: "Plus on m'en enlève, plus je grandis. Qui suis-je ?", answer: "un trou", aliases:["trou"], hint: "Dans le sol, dans le fromage..." },
+      { question: "Je commence la nuit et je finis le matin. Qui suis-je ?", answer: "lettre n", aliases:["n","la lettre n","lettren"], hint: "Observe les mots eux-mêmes." },
+      { question: "J’ai des villes mais pas de maisons, des montagnes mais pas d’arbres. Qui suis-je ?", answer: "une carte", aliases:["carte","map"], hint: "Utile pour voyager." },
+    ];
+    const bankRebus = [
+      { question: '<span class="rebus">LA + NOTE</span>', answer: "lanote", aliases:["la note","note"], hint: "Assemble simplement.", html:true },
+      { question: '<span class="rebus">P + HOMME</span>', answer: "pomme", aliases:["la pomme"], hint: "Phonétique avant orthographe.", html:true },
+      { question: '<span class="rebus">VER + EAU</span>', answer: "verredeau", aliases:["verre deau","verre d eau","verre d\'eau","verre d’eau"], hint: "Récipient + liquide.", html:true },
+      { question: '<span class="rebus">SOI + SCIE</span>', answer: "saucisse", aliases:["la saucisse"], hint: "Phonétique.", html:true },
+      { question: '<span class="rebus">🍞 + 🍫</span>', answer: "painauchocolat", aliases:["pain au chocolat","chocolatine"], hint: "👀 Débat régional.", html:true },
+    ];
+
+    // ============================================================
+    //  VOS VIDEOS
+    // ============================================================
+    const CUSTOM_REWARDS = [
+      {type:"video", url:"./medias/café.mp4"},
+      {type:"video", url:"./medias/arrest.mp4"},
+      {type:"video", url:"./medias/evolution.mp4"},
+      {type:"video", url:"./medias/herobrine.mp4"},
+      {type:"video", url:"./medias/icecream.mp4"},
+      {type:"video", url:"./medias/stealing.mp4"},
+      {type:"video", url:"./medias/ronaldo.mp4"},
+      {type:"video", url:"./medias/gmod.mp4"},
+    ];
+    // Défaut sans YouTube
+    const DEFAULT_REWARDS = [
+      { type:"video", url:"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" },
+      { type:"video", url:"https://samplelib.com/lib/preview/mp4/sample-5s.mp4" },
+      { type:"gif",   url:"https://media.giphy.com/media/26Ff2Z4B9yZJr6UCA/giphy.gif" },
+      { type:"gif",   url:"https://media.giphy.com/media/l0ExncehJzexFpRHq/giphy.gif" }
+    ];
+
+    // ============================================================
+    //  ETAT / AIDE
+    // ============================================================
+    let currentCategory=null, currentPuzzle=null, triesLeft=3, hintShown=false;
+    let lastReward=null;
+    let activeMedia = { type:null, el:null }; // 'video' | null
+
+    function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+    function getRewardsPool(){
+      return (CUSTOM_REWARDS && CUSTOM_REWARDS.length>0) ? CUSTOM_REWARDS : DEFAULT_REWARDS;
+    }
+
+    // ============================================================
+    //  NAVIGATION
+    // ============================================================
+    function backHome(){ stopActiveMedia(); showScreen("home"); }
+    function goCategory(){ stopActiveMedia(); if(currentCategory){ startGame(currentCategory); } else { startGame('random'); } }
+
+    function startGame(type){
+      stopActiveMedia();
+
+      currentCategory = (type==='random') ? pickRandom(['math','riddle','rebus']) : type;
+      const bank = currentCategory==='math' ? bankMath : currentCategory==='riddle' ? bankRiddle : bankRebus;
+
+      currentPuzzle = pickRandom(bank);
+      triesLeft = 3; hintShown = false;
+      $("#tries").textContent = triesLeft;
+      $("#game-cat").textContent = { math:"Mathématiques", riddle:"Devinettes", rebus:"Rébus" }[currentCategory];
+
+      const q = $("#question");
+      if (currentPuzzle.html) q.innerHTML = currentPuzzle.question; else q.textContent = currentPuzzle.question;
+
+      const hint = $("#hint");
+      hint.style.display="none"; hint.textContent="";
+      hint.setAttribute("aria-hidden","true");
+      const hintBtn = $("#hint-btn");
+      hintBtn.setAttribute("aria-expanded","false");
+
+      $("#feedback").textContent=""; $("#feedback").className="feedback";
+      $("#answer").value="";
+
+      showScreen("game");
+      $("#answer").focus();
+    }
+
+    // ============================================================
+    //  INDICE (sémantique)
+    // ============================================================
+    function toggleHint(){
+      if (!currentPuzzle) return;
+      const hint = $("#hint");
+      const btn  = $("#hint-btn");
+      if (!hintShown){
+        hint.textContent = "💡 " + (currentPuzzle?.hint || "Pas d’indice pour celle-ci.");
+        hint.style.display="block";
+        hint.setAttribute("aria-hidden","false");
+        btn.setAttribute("aria-expanded","true");
+        hintShown = true;
+      } else {
+        hint.style.display="none";
+        hint.setAttribute("aria-hidden","true");
+        btn.setAttribute("aria-expanded","false");
+        hintShown = false;
+      }
+    }
+
+    // ============================================================
+    //  VALIDATION
+    // ============================================================
+    function checkAnswer(){
+      if (!currentPuzzle) return;
+      const raw = $("#answer").value;
+      if (!raw.trim()){
+        pulse($("#answer"));
+        $("#feedback").textContent = "Entre une réponse.";
+        $("#feedback").className = "feedback warn";
+        return;
+      }
+      const user = normalize(raw);
+      const truth = normalize(currentPuzzle.answer);
+      const aliases = (currentPuzzle.aliases||[]).map(normalize);
+      const isNum = /^-?\d+(\.\d+)?$/.test(truth);
+
+      const ok = (user===truth) || aliases.includes(user) || (isNum && Number(user)==Number(truth));
+
+      if (ok){ celebrate().then(showRewardWithSound); }
+      else {
+        triesLeft--; playKo();
+        if (triesLeft<=0){
+          $("#tries").textContent = 0;
+          $("#feedback").innerHTML = `Raté. La solution était <b>${currentPuzzle.answer}</b>.`;
+          $("#feedback").className = "feedback ko";
+          setTimeout(()=> startGame(currentCategory), 1200);
+        } else {
+          $("#tries").textContent = triesLeft;
+          $("#feedback").textContent = "Non… essaie encore.";
+          $("#feedback").className = "feedback ko";
+          pulse($("#answer")); $("#answer").select();
+        }
+      }
+    }
+    function pulse(el){
+      el.animate([{transform:"scale(1)"},{transform:"scale(1.02)"},{transform:"scale(1)"}],{duration:120, easing:"ease-out"});
+    }
+    $("#answer").addEventListener("keydown", e=>{ if (e.key==="Enter") checkAnswer(); });
+
+    // ============================================================
+    //  MEDIA CONTROL
+    // ============================================================
+    function stopActiveMedia(){
+      try{
+        if (activeMedia.type === 'video' && activeMedia.el){
+          activeMedia.el.pause();
+          activeMedia.el.removeAttribute('src');
+          activeMedia.el.load();
+        }
+      }catch(e){}
+      $("#video-reward").innerHTML = '<button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Activer le son</button>';
+      activeMedia = { type:null, el:null };
+    }
+
+    async function forcePlayWithSound(){
+      const btn = $("#sound-nudge");
+      btn.style.display = "none";
+      await showRewardWithSound(true);
+    }
+
+    // ============================================================
+    //  RECOMPENSE (AUTOPLAY AVEC SON)
+    // ============================================================
+    async function showRewardWithSound(forceUserGesture=false){
+      const pool = getRewardsPool();
+      const pick = pickRandom(pool);
+      lastReward = pick;
+
+      const wrap = $("#video-reward");
+      stopActiveMedia();
+
+      const same = $("#again-same");
+      same.textContent = currentCategory ? `Rejouer ${ {math:"(Maths)", riddle:"(Devinettes)", rebus:"(Rébus)"}[currentCategory] }` : "Rejouer même catégorie";
+      $("#copy-state").textContent = "";
+
+      showScreen("reward");
+
+      if (pick.type === "video"){
+        const v = document.createElement("video");
+        v.src = pick.url;
+        v.autoplay = true; v.muted = false; v.loop = true; v.playsInline = true; v.controls = true;
+        wrap.appendChild(v);
+        activeMedia.type='video'; activeMedia.el=v;
+        const tryPlay = ()=> v.play().catch(()=>{ $("#sound-nudge").style.display = "inline-flex"; });
+        tryPlay();
+      } else {
+        const img = document.createElement("img");
+        img.src = pick.url; img.alt = "GIF récompense";
+        wrap.appendChild(img);
+        activeMedia = { type:null, el:img };
+      }
+    }
+
+    async function copyVideoLink(){
+      if (!lastReward) return;
+      const url = lastReward.url;
+      try{
+        await navigator.clipboard.writeText(url);
+        $("#copy-state").textContent = "Lien copié ✅";
+        $("#copy-state").className = "feedback ok";
+      }catch(e){
+        $("#copy-state").textContent = "Copie impossible. Lien : " + url;
+        $("#copy-state").className = "feedback warn";
+      }
+    }
+
+    // ============================================================
+    //  CELEBRATION — confettis allégés (faible charge)
+    // ============================================================
+    async function celebrate(){
+      playOk();
+      if (window.confetti){
+        // Un seul petit burst + un mini burst décalé
+        confetti({
+          particleCount: 18,
+          startVelocity: 22,
+          spread: 50,
+          origin: { y: 0.35 }
+        });
+        setTimeout(()=> confetti({
+          particleCount: 12,
+          startVelocity: 18,
+          spread: 60,
+          origin: { y: 0.35 }
+        }), 120);
+      }
+      await sleep(180);
+    }
+
+    // Entrée douce au chargement
+    window.addEventListener("load", ()=>{
+      document.body.animate([{opacity:0, transform:"translateY(6px)"},{opacity:1, transform:"none"}],{duration:200, easing:"ease-out"});
+    });
+  </script>
+</body>
+</html>

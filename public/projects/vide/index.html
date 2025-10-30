@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inktober 2025 - Jour 30</title>
+  <style>
+    /* Plein écran noir, sans défilement, police sans-serif (au cas où du texte système apparaîtrait) */
+    html, body { height: 100%; }
+    body{
+      margin:0;
+      background:#000;
+      color:#fff;
+      overflow:hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Canvas plein écran, rendu volontairement « pixelisé » (pas de flou) */
+    #snow{
+      position:fixed;
+      inset:0;
+      width:100vw;
+      height:100vh;
+      display:block;
+      background:#000;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Accessibilité : si l’utilisateur demande moins d’animations, on atténue la fréquence (géré côté JS) */
+  </style>
+</head>
+<body>
+  <canvas id="snow"></canvas>
+
+  <script>
+    // ======================================================
+    // ÉCRAN DE NEIGE — version minimaliste (neige seule)
+    // - Canvas plein écran, animation à ~60 FPS
+    // - Rendu net : HiDPI, imageSmoothing désactivé, quantification des niveaux
+    // - Aucun texte, aucun son, aucune interaction
+    // ======================================================
+
+    // ------ Sélection & contexte (opaque = plus performant) ------
+    const canvas = document.getElementById('snow');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = false;
+
+    // ------ Dimensions & buffers ------
+    let cssW = 0, cssH = 0, dpr = 1;
+    let bufW = 0, bufH = 0;                 // taille du buffer de bruit
+    let offscreen, offctx, imageData, data; // buffer hors-écran
+
+    // Échelle du buffer : plus petit -> plus « gros pixels » (et plus performant)
+    function choosePixelScale(w, h){
+      const shortest = Math.min(w, h);
+      if (shortest >= 1400) return 4; // grands écrans
+      if (shortest >= 900)  return 3; // desktop
+      return 3;                       // mobile / tablette
+    }
+    let PIXEL_SCALE = 3;
+
+    // ------ Redimensionnement réactif (HiDPI inclus) ------
+    function resize(){
+      cssW = Math.max(1, window.innerWidth);
+      cssH = Math.max(1, window.innerHeight);
+      dpr  = Math.max(1, Math.min(3, window.devicePixelRatio || 1)); // limite le DPR à 3 pour la perf
+      PIXEL_SCALE = choosePixelScale(cssW, cssH);
+
+      // Taille interne du canvas en pixels réels
+      canvas.width  = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+
+      // On dessine en unités CSS (1 unité = 1 px CSS)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
+      // Buffer de bruit plus petit, upscalé ensuite (effet TV)
+      bufW = Math.max(100, Math.round(cssW / PIXEL_SCALE));
+      bufH = Math.max(80,  Math.round(cssH / PIXEL_SCALE));
+
+      offscreen = document.createElement('canvas');
+      offscreen.width = bufW;
+      offscreen.height = bufH;
+      offctx = offscreen.getContext('2d', { alpha: false });
+      offctx.imageSmoothingEnabled = false;
+
+      imageData = offctx.createImageData(bufW, bufH);
+      data = imageData.data;
+    }
+    window.addEventListener('resize', resize);
+
+    // ------ Génération d’une frame de neige ------
+    // Rendu net : quantification (niveaux de gris discrets) + légère variation par ligne.
+    const LEVELS = 6;                         // nombre de niveaux de gris (augmenter -> plus lisse)
+    const STEP   = 255 / (LEVELS - 1);
+
+    function drawNoise(){
+      // Remplit le buffer RGBA avec du bruit quantifié.
+      for (let y = 0; y < bufH; y++){
+        const bias = (Math.random() * 40) - 20;     // « scanline » subtile
+        const row  = y * bufW * 4;
+        for (let x = 0; x < bufW; x++){
+          const i = row + x * 4;
+          let v = Math.random() * 255;
+          v = v * 0.9 + 15 + bias;                  // contraste + décalage
+          v = v < 0 ? 0 : v > 255 ? 255 : v;
+          v = Math.round(v / STEP) * STEP;          // quantification
+
+          data[i] = data[i+1] = data[i+2] = v;
+          data[i+3] = 255;                          // opaque
+        }
+      }
+      offctx.putImageData(imageData, 0, 0);
+
+      // Jitter vertical très léger pour l’aspect analogique, sans flou visuel
+      const jitterY = (Math.random() - 0.5) * 1.2;  // ±0.6 px
+      ctx.clearRect(0, 0, cssW, cssH);
+      ctx.drawImage(offscreen, 0, jitterY, cssW, cssH);
+    }
+
+    // ------ Boucle d’animation ------
+    let rafId = null;
+    let reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function loop(){
+      drawNoise();
+      // Si l’utilisateur préfère moins d’animations, on ralentit (≈ 20 FPS)
+      rafId = reduceMotion
+        ? setTimeout(() => requestAnimationFrame(loop), 50) // ~20fps
+        : requestAnimationFrame(loop);                     // ~60fps
+    }
+
+    // Démarrage
+    resize();
+    loop();
+
+    // Met à jour reduceMotion si la préférence change
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mq.addEventListener?.('change', e => { reduceMotion = e.matches; });
+    }
+
+    // Nettoyage si la page est déchargée (bonne pratique)
+    window.addEventListener('beforeunload', () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    });
+  </script>
+</body>
+</html>
