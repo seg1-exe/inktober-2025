@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tableau Blanc — Vanilla JS (Single File, Mobile Responsive v5)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+:root {
+  --bg: #ffffff;
+  --panel: #f0f0f0;
+  --text: #111111;
+  --primary: #111111;
+  --primary-contrast: #ffffff;
+  --shadow: 0 10px 20px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06);
+  --radius: 14px;
+  --transition: all .2s ease;
+  --top-offset: 64px;        /* espace pour la barre en haut (desktop) */
+  --bottom-offset: 0px;      /* espace pour la barre en bas (mobile) */
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; font-family: 'Roboto', Arial, sans-serif; color: var(--text); background: var(--bg); }
+
+/* ===== Toolbar (desktop top / mobile bottom) ===== */
+.toolbar {
+  position: sticky;
+  top: 0;
+  left: 0; right: 0;
+  z-index: 10;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  transition: transform .25s ease, bottom .25s ease;
+}
+.toolbar.bottom {
+  position: fixed;
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.toolbar.bottom.collapsed {
+  transform: translateY(100%);
+}
+
+.tool-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #fff;
+  padding: 8px;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px #e8e8e8;
+}
+.tool-btn, .menu-item, #btn-clear, #btn-delete-selected, #btn-export-png, #btn-export-json, .btn-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #ddd;
+  background: #fff;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tool-btn:hover, .menu-item:hover, #btn-clear:hover, #btn-delete-selected:hover,
+#btn-export-png:hover, #btn-export-json:hover, .btn-file:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.tool-btn.active { background: #111; color: #fff; border-color: #111; }
+.primary { background: var(--primary); color: var(--primary-contrast); border-color: var(--primary); }
+
+.inline-control { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+.inline-control input[type="color"] {
+  width: 36px; height: 32px; border: none; border-radius: 8px; padding: 0; background: transparent;
+}
+.inline-control input[type="range"] { width: 140px; }
+
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  min-width: 150px;
+  box-shadow: var(--shadow);
+}
+.dropdown.open .dropdown-menu { display: flex; }
+.menu-item { width: 100%; justify-content: flex-start; }
+
+/* Calques */
+.layers { min-width: 220px; }
+.layers-header { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.layer-actions button {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid #ddd; background: #fff; cursor: pointer;
+}
+.layers-list { display: flex; gap: 8px; align-items: center; }
+.layer-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px;
+  border: 1px solid #ddd; background: #fff; border-radius: 999px; font-size: 13px;
+}
+.layer-pill input[type="radio"] { accent-color: #111; }
+.layer-pill .eye, .layer-pill .remove {
+  width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+
+/* Zone principale : utilise des offsets dynamiques pour éviter la barre */
+#board-root {
+  position: fixed;
+  inset: var(--top-offset) 0 var(--bottom-offset) 0;
+}
+.canvas-wrap { position: absolute; inset: 0; background: #fff; touch-action: none; }
+#draw-canvas, #ui-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Text editor */
+.text-editor {
+  position: absolute; min-width: 80px; border: 1px solid #ccc; border-radius: 8px; padding: 6px 8px;
+  background: rgba(255,255,255,0.95); box-shadow: 0 4px 10px rgba(0,0,0,0.08); resize: both; z-index: 20;
+  outline: none;
+}
+.text-editor::placeholder { color: #888; }
+
+/* Toggle bouton (mobile) */
+.toolbar-toggle {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--bottom-offset) + 12px);
+  z-index: 20;
+  display: none;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #fff;
+  box-shadow: var(--shadow);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.toolbar-toggle:hover { transform: translateY(-2px); }
+
+/* Responsivité */
+@media (max-width: 900px) {
+  .layers { order: 99; width: 100%; }
+  .layers-list { flex-wrap: wrap; }
+  .inline-control input[type="range"] { width: 100px; }
+}
+@media (max-width: 768px) {
+  .toolbar-toggle { display: inline-flex; }
+  /* compacter un peu les groupes */
+  .tool-group { padding: 6px; gap: 6px; }
+  .tool-btn, .menu-item, #btn-clear, #btn-delete-selected, #btn-export-png, #btn-export-json, .btn-file { padding: 6px 8px; }
+  .inline-control { font-size: 13px; }
+}
+
+.hidden { display: none !important; }
+.disabled { opacity: .5; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar" id="toolbar" role="toolbar" aria-label="Barre d'outils du tableau blanc">
+      <div class="tool-group">
+        <button class="tool-btn" id="tool-select" data-tool="select" title="Sélection (V)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 3l7 16 2-7 7-2L3 3zM13 13l6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span>Sélection</span>
+        </button>
+        <button class="tool-btn" id="tool-draw" data-tool="draw" title="Dessiner (D)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" fill="currentColor"/></svg>
+          <span>Dessiner</span>
+        </button>
+        <button class="tool-btn" id="tool-text" data-tool="text" title="Texte (T)">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 4h16v2H13v14h-2V6H4z" fill="currentColor"/></svg>
+          <span>Texte</span>
+        </button>
+        <div class="dropdown">
+          <button class="tool-btn" id="tool-shape" title="Formes (R / C / L)">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3" y="3" width="8" height="8" fill="currentColor"/><circle cx="17" cy="7" r="4" fill="currentColor"/><path d="M3 21l18-6" stroke="currentColor" stroke-width="2"/></svg>
+            <span>Formes</span>
+          </button>
+          <div class="dropdown-menu" id="shape-menu" role="menu">
+            <button class="menu-item" data-tool="shape-rect">Rectangle</button>
+            <button class="menu-item" data-tool="shape-circle">Cercle</button>
+            <button class="menu-item" data-tool="shape-line">Ligne</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tool-group">
+        <label class="inline-control" title="Couleur du trait">
+          <span>Couleur</span>
+          <input type="color" id="color-picker" value="#111111" />
+        </label>
+        <label class="inline-control" title="Épaisseur du trait">
+          <span>Épaisseur</span>
+          <input type="range" id="size-range" min="1" max="40" step="1" value="4" />
+          <span id="size-label">4px</span>
+        </label>
+      </div>
+
+      <div class="tool-group layers">
+        <div class="layers-header">
+          <strong>Calques</strong>
+          <div class="layer-actions">
+            <button id="btn-add-layer" title="Ajouter un calque">+</button>
+          </div>
+        </div>
+        <div id="layers-list" class="layers-list" aria-live="polite"></div>
+      </div>
+
+      <div class="tool-group">
+        <button id="btn-clear" class="ghost" title="Effacer tout (Alt+Backspace)">Effacer tout</button>
+        <button id="btn-delete-selected" class="ghost" disabled title="Supprimer l’élément sélectionné (Suppr)">Supprimer</button>
+      </div>
+
+      <div class="tool-group">
+        <button id="btn-export-png" class="primary" title="Exporter en PNG">Exporter PNG</button>
+        <button id="btn-export-json" title="Exporter en JSON">Exporter JSON</button>
+        <label for="input-import-json" class="btn-file" title="Importer un JSON">Importer
+          <input type="file" id="input-import-json" accept="application/json" hidden />
+        </label>
+      </div>
+    </header>
+
+    <!-- Bouton de repli/affichage pour mobile -->
+    <button id="toolbar-toggle" class="toolbar-toggle" aria-expanded="true" title="Afficher/Masquer la barre d’outils">
+      <svg id="toolbar-toggle-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <!-- chevron down (cache la barre du bas) -->
+        <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+    </button>
+
+    <main id="board-root">
+      <div class="canvas-wrap" id="canvas-wrap">
+        <canvas id="draw-canvas"></canvas>
+        <canvas id="ui-canvas"></canvas>
+      </div>
+    </main>
+
+    <script>
+(() => {
+  // ===== DOM
+  const wrap = document.getElementById('canvas-wrap');
+  const drawCanvas = document.getElementById('draw-canvas');
+  const uiCanvas = document.getElementById('ui-canvas');
+  const toolbar = document.getElementById('toolbar');
+  const toggleBtn = document.getElementById('toolbar-toggle');
+  const toggleIcon = document.getElementById('toolbar-toggle-icon');
+
+  const tSelect = document.getElementById('tool-select');
+  const tDraw = document.getElementById('tool-draw');
+  const tText = document.getElementById('tool-text');
+  const tShape = document.getElementById('tool-shape');
+  const shapeMenu = document.getElementById('shape-menu');
+  const colorPicker = document.getElementById('color-picker');
+  const sizeRange = document.getElementById('size-range');
+  const sizeLabel = document.getElementById('size-label');
+  const btnClear = document.getElementById('btn-clear');
+  const btnDeleteSelected = document.getElementById('btn-delete-selected');
+  const btnExportPng = document.getElementById('btn-export-png');
+  const btnExportJson = document.getElementById('btn-export-json');
+  const inputImportJson = document.getElementById('input-import-json');
+  const btnAddLayer = document.getElementById('btn-add-layer');
+  const layersList = document.getElementById('layers-list');
+
+  const dctx = drawCanvas.getContext('2d');
+  const uctx = uiCanvas.getContext('2d');
+
+  // ===== State
+  const STATE = {
+    tool: 'draw',
+    color: '#111111',
+    size: 4,
+    dpr: Math.max(1, window.devicePixelRatio || 1),
+    layers: [],
+    currentLayerId: null,
+    drawing: { active: false, start: {x:0, y:0}, last: {x:0,y:0}, stroke: null, preview: null },
+    selection: { itemRef: null, dragging: false, dragOffset: {x:0,y:0}, hover: null },
+    textEditor: null,
+    pendingText: null,
+    ui: { isMobile: false, collapsed: false }
+  };
+
+  // ===== Utils
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  function getCanvasSize() {
+    const r = wrap.getBoundingClientRect();
+    return { width: r.width, height: r.height };
+  }
+  function toCanvasPoint(e) {
+    const rect = uiCanvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  function setCursor() {
+    let cur = 'default';
+    if (STATE.tool.startsWith('shape') || STATE.tool === 'draw') cur = 'crosshair';
+    if (STATE.tool === 'text') cur = 'text';
+    if (STATE.tool === 'select') cur = (STATE.selection.hover ? 'move' : 'default');
+    drawCanvas.style.cursor = cur;
+    uiCanvas.style.cursor = cur;
+  }
+
+  function resizeCanvases() {
+    const { width, height } = getCanvasSize();
+    const dpr = STATE.dpr;
+    [drawCanvas, uiCanvas].forEach(cv => {
+      cv.width = Math.floor(width * dpr);
+      cv.height = Math.floor(height * dpr);
+      cv.style.width = width + 'px';
+      cv.style.height = height + 'px';
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    });
+    redrawAll();
+  }
+
+  // ===== Layout: top/bottom toolbar + collapse
+  const mq = window.matchMedia('(max-width: 768px)');
+  function updateLayout() {
+    STATE.ui.isMobile = mq.matches;
+    toolbar.classList.toggle('bottom', STATE.ui.isMobile);
+    toolbar.classList.toggle('collapsed', STATE.ui.isMobile && STATE.ui.collapsed);
+    toggleBtn.style.display = STATE.ui.isMobile ? 'inline-flex' : 'none';
+
+    let topOffset = 0, bottomOffset = 0;
+    if (STATE.ui.isMobile) {
+      const tb = toolbar.getBoundingClientRect();
+      bottomOffset = STATE.ui.collapsed ? 56 : Math.ceil(tb.height);
+      toggleBtn.setAttribute('aria-expanded', String(!STATE.ui.collapsed));
+      // Icon: chevron down when expanded (to hide), chevron up when collapsed (to show)
+      toggleIcon.innerHTML = STATE.ui.collapsed
+        ? '<path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />'
+        : '<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />';
+    } else {
+      const tb = toolbar.getBoundingClientRect();
+      topOffset = Math.ceil(tb.height);
+      STATE.ui.collapsed = false;
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    document.documentElement.style.setProperty('--top-offset', topOffset + 'px');
+    document.documentElement.style.setProperty('--bottom-offset', bottomOffset + 'px');
+
+    // Resize canvases to new area
+    resizeCanvases();
+  }
+  mq.addEventListener('change', updateLayout);
+  toggleBtn.addEventListener('click', () => { STATE.ui.collapsed = !STATE.ui.collapsed; updateLayout(); });
+
+  // ===== Layers
+  function createLayer(name) { return { id: uid(), name, visible: true, items: [] }; }
+  function currentLayer() { return STATE.layers.find(l => l.id === STATE.currentLayerId); }
+  function addLayer() {
+    if (STATE.layers.length >= 3) return alert('Nombre maximum de calques atteint (3).');
+    const L = createLayer('Calque ' + (STATE.layers.length + 1));
+    STATE.layers.push(L); STATE.currentLayerId = L.id; renderLayersUI(); redrawAll();
+  }
+  function removeLayer(layerId) {
+    if (STATE.layers.length <= 1) return alert('Impossible de supprimer le dernier calque.');
+    const idx = STATE.layers.findIndex(l => l.id === layerId);
+    if (idx === -1) return;
+    if (!confirm('Supprimer ce calque ? Les éléments seront perdus.')) return;
+    STATE.layers.splice(idx, 1);
+    if (!STATE.layers.some(l => l.id === STATE.currentLayerId)) STATE.currentLayerId = STATE.layers.at(-1).id;
+    renderLayersUI(); redrawAll();
+  }
+  function toggleLayerVisibility(layerId) {
+    const L = STATE.layers.find(l => l.id === layerId); if (!L) return;
+    L.visible = !L.visible; renderLayersUI(); redrawAll();
+  }
+  function setCurrentLayer(layerId) { STATE.currentLayerId = layerId; renderLayersUI(); }
+
+  function renderLayersUI() {
+    layersList.innerHTML = '';
+    STATE.layers.forEach(layer => {
+      const pill = document.createElement('div'); pill.className = 'layer-pill';
+      const radio = document.createElement('input'); radio.type='radio'; radio.name='current-layer'; radio.checked = layer.id === STATE.currentLayerId;
+      radio.addEventListener('change', () => setCurrentLayer(layer.id));
+      const name = document.createElement('span'); name.textContent = layer.name;
+      const eye = document.createElement('button'); eye.className='eye'; eye.title = layer.visible ? 'Masquer' : 'Afficher';
+      eye.innerHTML = layer.visible
+        ? '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7zm11 4a4 4 0 100-8 4 4 0 000 8z" fill="currentColor"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 5l17 17M10 5c6 0 11 7 11 7a21 21 0 01-5.8 5.3M6.2 8.2A20.9 20.9 0 001 12s4 7 11 7c1.1 0 2.2-.2 3.2-.5" stroke="currentColor" stroke-width="2" fill="none"/></svg>';
+      eye.addEventListener('click', () => toggleLayerVisibility(layer.id));
+      const removeBtn = document.createElement('button'); removeBtn.className='remove'; removeBtn.title='Supprimer le calque';
+      removeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6h12M9 6v12m6-12v12M4 6h16l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6zm3-2h10l1 2H6l1-2z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>';
+      removeBtn.addEventListener('click', () => removeLayer(layer.id));
+      pill.append(radio, name, eye, removeBtn);
+      layersList.appendChild(pill);
+    });
+  }
+
+  // ===== Rendering
+  function clearCanvas(ctx) { const {width, height} = getCanvasSize(); ctx.clearRect(0,0,width,height); }
+  function drawStroke(ctx, s) {
+    const pts = s.points; if (!pts || pts.length < 2) return;
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=s.color; ctx.lineWidth=s.size;
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke(); ctx.restore();
+  }
+  function drawRect(ctx, it) { ctx.save(); ctx.strokeStyle=it.stroke||'#111'; ctx.lineWidth=it.lineWidth||2; ctx.strokeRect(it.x, it.y, it.w, it.h); ctx.restore(); }
+  function drawCircle(ctx, it) { ctx.save(); ctx.strokeStyle=it.stroke||'#111'; ctx.lineWidth=it.lineWidth||2; ctx.beginPath(); ctx.arc(it.cx,it.cy,it.r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  function drawLine(ctx, it) { ctx.save(); ctx.strokeStyle=it.stroke||'#111'; ctx.lineWidth=it.lineWidth||2; ctx.beginPath(); ctx.moveTo(it.x1,it.y1); ctx.lineTo(it.x2,it.y2); ctx.stroke(); ctx.restore(); }
+  function drawText(ctx, it) { ctx.save(); ctx.fillStyle=it.color||'#111'; ctx.textBaseline='top'; ctx.font=`${it.fontSize||20}px ${it.fontFamily||'Arial, sans-serif'}`; ctx.fillText(it.text||'', it.x, it.y); ctx.restore(); }
+  function drawItem(ctx, it) { if (it.type==='stroke') drawStroke(ctx,it); else if (it.type==='rect') drawRect(ctx,it); else if (it.type==='circle') drawCircle(ctx,it); else if (it.type==='line') drawLine(ctx,it); else if (it.type==='text') drawText(ctx,it); }
+
+  function getStrokeBBox(points) {
+    let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
+    for (const p of points) { if (!p) continue; if (p.x<minx) minx=p.x; if (p.y<miny) miny=p.y; if (p.x>maxx) maxx=p.x; if (p.y>maxy) maxy=p.y; }
+    if (!isFinite(minx)) return {x:0,y:0,w:0,h:0};
+    return { x:minx, y:miny, w:maxx-minx, h:maxy-miny };
+  }
+
+  function redrawAll() {
+    clearCanvas(dctx); clearCanvas(uctx);
+    for (const L of STATE.layers) {
+      if (!L.visible) continue;
+      for (const it of L.items) (it.type==='stroke' ? drawItem(dctx,it) : drawItem(uctx,it));
+    }
+    renderSelectionOutline();
+  }
+
+  function getItemBBox(it, ctx=uctx) {
+    switch (it.type) {
+      case 'stroke': {
+        const b = getStrokeBBox(it.points || []);
+        return { x: b.x-2, y: b.y-2, w: b.w+4, h: b.h+4 };
+      }
+      case 'rect': {
+        const x = Math.min(it.x, it.x + it.w), y = Math.min(it.y, it.y + it.h);
+        const w = Math.abs(it.w), h = Math.abs(it.h); return {x,y,w,h};
+      }
+      case 'circle': return { x: it.cx - it.r, y: it.cy - it.r, w: it.r*2, h: it.r*2 };
+      case 'line': {
+        const x = Math.min(it.x1, it.x2), y = Math.min(it.y1, it.y2);
+        const w = Math.abs(it.x2 - it.x1), h = Math.abs(it.y2 - it.y1); return {x,y,w,h};
+      }
+      case 'text': {
+        ctx.save(); ctx.font = `${it.fontSize||20}px ${it.fontFamily||'Arial, sans-serif'}`;
+        const w = ctx.measureText(it.text||'').width; const h = (it.fontSize||20)*1.2; ctx.restore();
+        return { x: it.x, y: it.y, w, h };
+      }
+      default: return null;
+    }
+  }
+  function renderSelectionOutline() {
+    if (!STATE.selection.itemRef) return;
+    const { layerId, index } = STATE.selection.itemRef;
+    const L = STATE.layers.find(l => l.id === layerId); if (!L || !L.visible) return;
+    const it = L.items[index]; if (!it) return;
+    const b = getItemBBox(it, uctx); if (!b) return;
+    uctx.save(); uctx.setLineDash([6,6]); uctx.strokeStyle='#111'; uctx.lineWidth=1; uctx.strokeRect(b.x,b.y,b.w,b.h); uctx.restore();
+  }
+
+  // ===== Tools
+  const ALL_TOOL_BTNS = [tSelect, tDraw, tText, tShape];
+  function setTool(tool) {
+    STATE.tool = tool; ALL_TOOL_BTNS.forEach(b => b.classList.remove('active'));
+    if (tool==='select') tSelect.classList.add('active');
+    else if (tool==='draw') tDraw.classList.add('active');
+    else if (tool==='text') tText.classList.add('active');
+    else if (tool.startsWith('shape')) tShape.classList.add('active');
+    setCursor();
+  }
+
+  // ===== Hit tests
+  function pointInBBox(pt, bbox, pad=6) {
+    return pt.x >= (bbox.x - pad) && pt.x <= (bbox.x + bbox.w + pad) &&
+           pt.y >= (bbox.y - pad) && pt.y <= (bbox.y + bbox.h + pad);
+  }
+  function distancePointToSegment(px, py, x1, y1, x2, y2) {
+    const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D;
+    let t = len ? dot/len : -1; t = Math.max(0, Math.min(1, t));
+    const xx = x1 + t*C, yy = y1 + t*D; const dx=px-xx, dy=py-yy; return Math.hypot(dx,dy);
+  }
+  function hitTestStroke(pt, stroke) {
+    const pts = stroke.points || [];
+    for (let i=0; i<pts.length-1; i++) {
+      const a = pts[i], b = pts[i+1];
+      if (distancePointToSegment(pt.x, pt.y, a.x, a.y, b.x, b.y) <= Math.max(8, stroke.size/2 + 4)) return true;
+    }
+    return pointInBBox(pt, getItemBBox(stroke));
+  }
+  function hitTest(pt) {
+    for (let li = STATE.layers.length - 1; li >= 0; li--) {
+      const L = STATE.layers[li]; if (!L.visible) continue;
+      for (let i = L.items.length - 1; i >= 0; i--) {
+        const it = L.items[i];
+        if (it.type==='stroke') { if (hitTestStroke(pt, it)) return {layerId:L.id, index:i}; }
+        else if (it.type==='rect') { if (pointInBBox(pt, getItemBBox(it))) return {layerId:L.id, index:i}; }
+        else if (it.type==='circle') { if (Math.hypot(pt.x-it.cx, pt.y-it.cy) <= it.r + 8) return {layerId:L.id, index:i}; }
+        else if (it.type==='line') { if (distancePointToSegment(pt.x,pt.y,it.x1,it.y1,it.x2,it.y2) <= 8) return {layerId:L.id, index:i}; }
+        else if (it.type==='text') { if (pointInBBox(pt, getItemBBox(it))) return {layerId:L.id, index:i}; }
+      }
+    }
+    return null;
+  }
+
+  // ===== Pointer interactions
+  function onPointerDown(e) {
+    if (e.pointerType === 'touch') e.preventDefault();
+    const pt = toCanvasPoint(e);
+
+    if (STATE.tool === 'select') {
+      const hit = hitTest(pt);
+      STATE.selection.itemRef = hit;
+      if (hit) {
+        const { layerId, index } = hit;
+        const it = STATE.layers.find(l => l.id === layerId).items[index];
+        const bb = getItemBBox(it);
+        STATE.selection.dragging = true;
+        STATE.selection.dragOffset = { x: pt.x - bb.x, y: pt.y - bb.y };
+        btnDeleteSelected.disabled = false;
+        uiCanvas.setPointerCapture(e.pointerId);
+      } else {
+        btnDeleteSelected.disabled = true;
+      }
+      redrawAll();
+      return;
+    }
+
+    if (STATE.tool === 'draw') {
+      uiCanvas.setPointerCapture(e.pointerId);
+      const L = currentLayer();
+      const stroke = { type: 'stroke', color: STATE.color, size: STATE.size, points: [pt] };
+      L.items.push(stroke);
+      STATE.drawing.active = true; STATE.drawing.stroke = stroke; STATE.drawing.last = pt;
+      dctx.save(); dctx.lineCap='round'; dctx.lineJoin='round'; dctx.strokeStyle=stroke.color; dctx.lineWidth=stroke.size;
+      dctx.beginPath(); dctx.moveTo(pt.x, pt.y); dctx.restore();
+      return;
+    }
+
+    if (STATE.tool.startsWith('shape')) {
+      uiCanvas.setPointerCapture(e.pointerId);
+      STATE.drawing.active = true; STATE.drawing.start = pt; STATE.drawing.preview = null;
+      return;
+    }
+
+    if (STATE.tool === 'text') {
+      STATE.pendingText = { x: pt.x, y: pt.y };
+      return;
+    }
+  }
+
+  function onPointerMove(e) {
+    if (e.pointerType === 'touch') e.preventDefault();
+    const pt = toCanvasPoint(e);
+
+    if (STATE.tool === 'draw' && STATE.drawing.active && STATE.drawing.stroke) {
+      const s = STATE.drawing.stroke; const last = STATE.drawing.last;
+      s.points.push(pt);
+      dctx.save(); dctx.lineCap='round'; dctx.lineJoin='round'; dctx.strokeStyle=s.color; dctx.lineWidth=s.size;
+      dctx.beginPath();
+      dctx.moveTo(last.x, last.y); dctx.lineTo(pt.x, pt.y); dctx.stroke();
+      dctx.restore();
+      STATE.drawing.last = pt; return;
+    }
+
+    if (STATE.tool.startsWith('shape') && STATE.drawing.active) {
+      const start = STATE.drawing.start; const color = STATE.color; const lineWidth = STATE.size;
+      let preview = null;
+      if (STATE.tool === 'shape-rect') preview = { type:'rect', x:start.x, y:start.y, w: pt.x-start.x, h: pt.y-start.y, stroke: color, lineWidth };
+      else if (STATE.tool === 'shape-circle') { const r = Math.hypot(pt.x-start.x, pt.y-start.y); preview = { type:'circle', cx:start.x, cy:start.y, r, stroke: color, lineWidth }; }
+      else if (STATE.tool === 'shape-line') preview = { type:'line', x1:start.x, y1:start.y, x2:pt.x, y2:pt.y, stroke: color, lineWidth };
+      STATE.drawing.preview = preview;
+
+      clearCanvas(uctx);
+      for (const L of STATE.layers) { if (!L.visible) continue; for (const it of L.items) if (it.type!=='stroke') drawItem(uctx, it); }
+      if (preview) drawItem(uctx, preview);
+      renderSelectionOutline();
+      return;
+    }
+
+    if (STATE.tool === 'select') {
+      const hit = hitTest(pt); STATE.selection.hover = hit; setCursor();
+      if (STATE.selection.dragging && STATE.selection.itemRef) {
+        const { layerId, index } = STATE.selection.itemRef;
+        const it = STATE.layers.find(l => l.id === layerId).items[index];
+        const off = STATE.selection.dragOffset;
+        const nx = pt.x - off.x, ny = pt.y - off.y;
+        const bb = getItemBBox(it);
+        const dx = nx - bb.x, dy = ny - bb.y;
+        if (it.type==='rect') { it.x += dx; it.y += dy; }
+        else if (it.type==='circle') { it.cx += dx; it.cy += dy; }
+        else if (it.type==='line') { it.x1 += dx; it.y1 += dy; it.x2 += dx; it.y2 += dy; }
+        else if (it.type==='text') { it.x += dx; it.y += dy; }
+        else if (it.type==='stroke') { for (const p of it.points) { p.x += dx; p.y += dy; } }
+        redrawAll();
+      }
+    }
+  }
+
+  function onPointerUp(e) {
+    if (e.pointerType === 'touch') e.preventDefault();
+    uiCanvas.releasePointerCapture(e.pointerId);
+
+    if (STATE.tool === 'draw' && STATE.drawing.active) {
+      STATE.drawing.active = false; STATE.drawing.stroke = null; return;
+    }
+    if (STATE.tool.startsWith('shape') && STATE.drawing.active) {
+      const L = currentLayer();
+      if (STATE.drawing.preview) { const it = JSON.parse(JSON.stringify(STATE.drawing.preview)); L.items.push(it); }
+      STATE.drawing.active = false; STATE.drawing.preview = null; redrawAll(); return;
+    }
+    if (STATE.tool === 'select') { STATE.selection.dragging = false; return; }
+    if (STATE.tool === 'text' && STATE.pendingText) {
+      const pt = STATE.pendingText; STATE.pendingText = null;
+      const L = currentLayer();
+      const item = { type:'text', x: pt.x, y: pt.y, text: '', color: STATE.color, fontSize: clamp(STATE.size*4,12,96), fontFamily:'Arial, sans-serif' };
+      L.items.push(item);
+      openTextEditor(item);
+      redrawAll();
+      return;
+    }
+  }
+
+  // ===== Text editor (robuste)
+  function openTextEditor(item) {
+    closeTextEditor();
+    const ta = document.createElement('textarea');
+    ta.className = 'text-editor';
+    ta.value = item.text || '';
+    ta.placeholder = 'Tapez votre texte…';
+    const { x, y } = item; const { width } = getCanvasSize();
+    Object.assign(ta.style, {
+      left: x + 'px', top: y + 'px',
+      maxWidth: (width - x - 10) + 'px',
+      font: `${item.fontSize||20}px ${item.fontFamily||'Arial, sans-serif'}`,
+      color: item.color || '#111'
+    });
+    wrap.appendChild(ta);
+    setTimeout(() => ta.focus(), 0);
+
+    let committed = false;
+    function commit() {
+      if (committed) return; committed = true;
+      item.text = (ta.value || '').trim();
+      closeTextEditor();
+      if (!item.text) {
+        for (const L of STATE.layers) {
+          const idx = L.items.indexOf(item);
+          if (idx !== -1) { L.items.splice(idx, 1); break; }
+        }
+      }
+      redrawAll();
+    }
+
+    ['pointerdown','mousedown','click'].forEach(ev => ta.addEventListener(ev, e => e.stopPropagation()));
+
+    ta.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' && (e.metaKey || e.ctrlKey))) commit();
+      else if (e.key === 'Escape') commit();
+      e.stopPropagation();
+    }, { capture: true });
+    ta.addEventListener('blur', () => setTimeout(commit, 0), { once: true });
+
+    STATE.textEditor = { el: ta, item };
+  }
+
+  function closeTextEditor() {
+    if (!STATE.textEditor) return;
+    const el = STATE.textEditor.el;
+    if (el && el.parentNode) { try { el.parentNode.removeChild(el); } catch (_) {} }
+    STATE.textEditor = null;
+  }
+
+  function onDblClick(e) {
+    const pt = toCanvasPoint(e); const hit = hitTest(pt); if (!hit) return;
+    const { layerId, index } = hit; const it = STATE.layers.find(l => l.id === layerId).items[index];
+    if (it.type === 'text') openTextEditor(it);
+  }
+
+  // ===== Export / Import
+  function exportJSON() {
+    const payload = { version: 1, canvas: getCanvasSize(), layers: STATE.layers };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href=url; a.download='tableau_blanc.json'; a.click(); URL.revokeObjectURL(url);
+  }
+  function importJSONFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.layers || !Array.isArray(data.layers)) throw new Error('Format JSON invalide');
+        STATE.layers = data.layers; if (!STATE.layers.length) STATE.layers.push(createLayer('Calque 1'));
+        STATE.currentLayerId = STATE.layers[0].id; renderLayersUI(); redrawAll();
+      } catch (err) { alert('Import impossible : ' + err.message); }
+    };
+    reader.readAsText(file);
+  }
+  function exportPNG() {
+    const { width, height } = getCanvasSize(); const dpr = STATE.dpr;
+    const tmp = document.createElement('canvas'); const tctx = tmp.getContext('2d');
+    tmp.width = Math.floor(width*dpr); tmp.height = Math.floor(height*dpr); tctx.setTransform(dpr,0,0,dpr,0,0);
+    tctx.fillStyle = '#ffffff'; tctx.fillRect(0,0,width,height);
+    for (const L of STATE.layers) { if (!L.visible) continue; for (const it of L.items) drawItem(tctx, it); }
+    tmp.toBlob((blob)=>{ if(!blob) return; const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tableau_blanc.png'; a.click(); URL.revokeObjectURL(url); });
+  }
+
+  // ===== Clear / Delete
+  function clearAll() {
+    if (!confirm('Effacer tout le tableau ?')) return;
+    STATE.layers = [createLayer('Calque 1')]; STATE.currentLayerId = STATE.layers[0].id; renderLayersUI(); redrawAll();
+  }
+  function deleteSelected() {
+    const ref = STATE.selection.itemRef; if (!ref) return;
+    const L = STATE.layers.find(l => l.id === ref.layerId); if (!L) return;
+    L.items.splice(ref.index, 1); STATE.selection.itemRef = null; btnDeleteSelected.disabled = true; redrawAll();
+  }
+
+  // ===== Keyboard
+  function onKeyDown(e) {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable)) return;
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'd' || e.key === 'D') setTool('draw');
+    if (e.key === 't' || e.key === 'T') setTool('text');
+    if (e.key === 'r' || e.key === 'R') setTool('shape-rect');
+    if (e.key === 'c' || e.key === 'C') setTool('shape-circle');
+    if (e.key === 'l' || e.key === 'L') setTool('shape-line');
+    if ((e.key === 'Delete' || e.key === 'Backspace') && STATE.tool === 'select') deleteSelected();
+    if (e.key === 'Backspace' && e.altKey) clearAll();
+  }
+
+  // ===== UI hooks
+  tSelect.addEventListener('click', () => setTool('select'));
+  tDraw.addEventListener('click', () => setTool('draw'));
+  tText.addEventListener('click', () => setTool('text'));
+  tShape.addEventListener('click', (e) => { e.stopPropagation(); tShape.parentElement.classList.toggle('open'); });
+  document.addEventListener('click', () => tShape.parentElement.classList.remove('open'));
+  shapeMenu.addEventListener('click', (e) => {
+    const btn = e.target.closest('.menu-item'); if (!btn) return;
+    const tool = btn.getAttribute('data-tool'); setTool(tool); tShape.parentElement.classList.remove('open');
+  });
+  colorPicker.addEventListener('input', (e) => STATE.color = e.target.value);
+  sizeRange.addEventListener('input', (e) => { STATE.size = parseInt(e.target.value,10)||1; sizeLabel.textContent = STATE.size + 'px'; });
+  btnClear.addEventListener('click', clearAll);
+  btnExportJson.addEventListener('click', exportJSON);
+  btnExportPng.addEventListener('click', exportPNG);
+  inputImportJson.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) importJSONFile(f); e.target.value=''; });
+  btnAddLayer.addEventListener('click', addLayer);
+  btnDeleteSelected.addEventListener('click', deleteSelected);
+
+  uiCanvas.addEventListener('pointerdown', onPointerDown);
+  uiCanvas.addEventListener('pointermove', onPointerMove);
+  uiCanvas.addEventListener('pointerup', onPointerUp);
+  uiCanvas.addEventListener('dblclick', onDblClick);
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('resize', updateLayout);
+
+  function init() {
+    STATE.layers = [createLayer('Calque 1')]; STATE.currentLayerId = STATE.layers[0].id;
+    renderLayersUI(); setTool('draw'); sizeLabel.textContent = STATE.size + 'px'; updateLayout(); setCursor();
+  }
+  init();
+})();
+    </script>
+  </body>
+</html>
