@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Inktober 2025 - Jour 18</title>
+  <title>Inktober 2025 - Day 18</title>
   <style>
     * {
       margin: 0;
@@ -31,7 +31,7 @@
       overflow: hidden;
     }
 
-    /* Dimensions de carte réaliste */
+    /* Realistic card dimensions */
     :root {
       --card-width: 70px;
       --card-height: 98px;
@@ -139,7 +139,7 @@
       opacity: 0.15;
     }
 
-    /* Interface de contrôle */
+    /* Control UI */
     .controls {
       position: fixed;
       bottom: 20px;
@@ -180,11 +180,11 @@
   <div id="board"></div>
 
   <script>
-    // ———————————— Utilitaires ————————————
+    // ———————————— Utilities ————————————
     const rand = (min, max) => Math.random() * (max - min) + min;
     const choice = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-    // Jeu de 52 cartes
+    // Standard 52-card deck
     const SUITS = [
       { name: 'spades',   symbol: '♠', ink: '#121212' },
       { name: 'hearts',   symbol: '♥', ink: '#cc1122' },
@@ -193,10 +193,10 @@
     ];
     const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 
-    // Images de dos de cartes (patterns SVG intégrés pour éviter les problèmes de chemin)
+    // Card backs (local images)
     const BACK_PATTERNS = [
-        'rouge.png',
-        'bleu.png',
+      'rouge.png',
+      'bleu.png',
     ];
 
     function buildDeck() {
@@ -220,9 +220,9 @@
       let idx = 0;
       while (true) {
         yield deck[idx++];
-        if (idx >= deck.length) { 
-          deck = properShuffle(buildDeck()); 
-          idx = 0; 
+        if (idx >= deck.length) {
+          deck = properShuffle(buildDeck());
+          idx = 0;
         }
       }
     }
@@ -230,11 +230,11 @@
     const dealer = infiniteDealer();
     const board = document.getElementById('board');
 
-    // Réglages (vitesse de chute légèrement augmentée)
+    // Settings (slightly faster fall)
     const settings = {
       spawnEvery: 220,
-      minFall: 5000,     // Réduit de 6000 → 5000
-      maxFall: 10000,    // Réduit de 12000 → 10000
+      minFall: 5000,
+      maxFall: 10000,
       minFlipFrac: 0.18,
       maxFlipFrac: 0.88,
     };
@@ -257,7 +257,7 @@
       const inner = document.createElement('div');
       inner.className = 'card-inner face-down';
 
-      // Face avant
+      // Front face
       const front = document.createElement('div');
       front.className = 'card-face front';
       front.style.setProperty('--ink', card.suit.ink);
@@ -278,7 +278,7 @@
       front.appendChild(center);
       front.appendChild(br);
 
-      // Face arrière
+      // Back face
       const back = document.createElement('div');
       back.className = 'card-face back';
       const backImg = document.createElement('img');
@@ -291,10 +291,10 @@
       inner.appendChild(back);
       el.appendChild(inner);
 
-      // Retirer la carte après l'animation (elle est maintenant hors écran)
+      // Remove card once animation ends (off-screen)
       el.addEventListener('animationend', () => el.remove());
 
-      // Retourner la carte à un moment aléatoire
+      // Flip card at a random point during the fall
       const flipAt = rand(settings.minFlipFrac, settings.maxFlipFrac);
       setTimeout(() => inner.classList.remove('face-down'), duration * flipAt);
 
@@ -311,17 +311,18 @@
       }, settings.spawnEvery);
     }
 
-    function stop() { 
-      clearInterval(spawnTimer); 
-      spawnTimer = null; 
+    function stop() {
+      clearInterval(spawnTimer);
+      spawnTimer = null;
     }
 
-    // Pause quand l'onglet n'est pas visible
+    // Pause when tab is not visible
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) stop(); else start();
+      if (document.hidden) stop();
+      else start();
     });
 
-    // Démarrage automatique
+    // Auto start
     start();
   </script>
 </body>

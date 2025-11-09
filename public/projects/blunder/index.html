@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Inktober 2025 - Day 16</title>
+<style>
+  :root{
+    --bg:#008080;
+    --win-face:#c0c0c0;
+    --win-light:#ffffff;
+    --win-shadow:#808080;
+    --win-dark:#000000;
+    --bluebar:#000080;
+    --bluebar-text:#ffffff;
+    --text:#000;
+  }
+
+  /* Frozen page (the stage handles everything) */
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    overflow:hidden;              /* no global scroll */
+    background:var(--bg);
+    font-family:Tahoma, "MS Sans Serif", system-ui, sans-serif;
+    color:var(--text);
+    overscroll-behavior:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* Fullscreen fixed container */
+  #stage{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100dvh;                /* fixes iOS/Android */
+    overflow:hidden;              /* nothing overflows => body no longer grows */
+    touch-action:none;            /* prevents global pan/scroll */
+  }
+
+  /* Win9x buttons */
+  .btn{
+    display:inline-block; padding:6px 14px; background:var(--win-face);
+    border:2px solid var(--win-face);
+    box-shadow:inset -1px -1px 0 var(--win-dark), inset 1px 1px 0 var(--win-light),
+               inset -2px -2px 0 var(--win-shadow), inset 2px 2px 0 #fff;
+    cursor:default; user-select:none; font-size:14px; line-height:1
+  }
+  .btn:active{
+    box-shadow:inset -1px -1px 0 var(--win-light), inset 1px 1px 0 var(--win-dark),
+               inset -2px -2px 0 #fff, inset 2px 2px 0 var(--win-shadow)
+  }
+
+  /* Win98 window */
+  .win{
+    position:absolute;
+    width:clamp(220px, 84vw, 460px);
+    max-width:94vw;
+    background:var(--win-face);
+    border:2px solid var(--win-face);
+    box-shadow:inset -1px -1px 0 var(--win-dark), inset 1px 1px 0 var(--win-light),
+               inset -2px -2px 0 var(--win-shadow), inset 2px 2px 0 #fff;
+    max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow:hidden;
+  }
+  .titlebar{
+    display:flex; align-items:center; gap:8px; padding:6px 6px;
+    background:var(--bluebar); color:var(--bluebar-text);
+    font-weight:700; user-select:none; cursor:move; touch-action:none;
+  }
+  .titlebar .icon{width:16px;height:16px;background:linear-gradient(#fff,#ddd);border:1px solid #000}
+  .titlebar .title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .titlebar .controls{display:flex;gap:2px}
+  .ctrl{width:18px;height:16px;background:var(--win-face);border:1px solid #000;display:grid;place-items:center;line-height:0}
+  .ctrl span{font-size:12px}
+
+  .content{
+    padding:10px; display:grid; grid-template-columns:18px 1fr; gap:10px;
+    align-items:center; overflow:auto;
+  }
+  .content .msg{font-size:14px}
+  .toolbar{display:flex;gap:8px;justify-content:flex-end;padding:0 12px 12px}
+
+  /* Effects */
+  @keyframes flicker{0%,100%{filter:none} 50%{filter:brightness(1.08)}}
+  .flicker{animation:flicker .5s linear infinite}
+  @keyframes shake{10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)} 30%,50%,70%{transform:translateX(-3px)} 40%,60%{transform:translateX(3px)}}
+  .shake{animation:shake .35s ease both}
+
+  /* Ambient overlay */
+  .flood-overlay{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;opacity:.0;transition:opacity .4s ease;background:radial-gradient(120% 80% at 50% 100%, #fff0 0, #fff0 45%, rgba(0,0,0,.35) 100%)}
+  .flooding .flood-overlay{opacity:.8}
+
+  /* Intro bubble (initial class) */
+  .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+
+  /* HUD stop – desktop: bottom/right */
+  #hud{
+    position:absolute;
+    right:calc(8px + env(safe-area-inset-right));
+    bottom:calc(8px + env(safe-area-inset-bottom));
+    z-index:9999
+  }
+
+  /* Accessibility */
+  @media (prefers-reduced-motion:reduce){
+    .flicker,.shake{animation:none}
+  }
+
+  /* Mobile tweaks + HUD centered at bottom */
+  @media (max-width:480px){
+    .btn{padding:8px 14px;font-size:14px}
+    .content{grid-template-columns:16px 1fr;gap:8px}
+    .titlebar{padding:6px 8px}
+    #hud{left:50%; right:auto; transform:translateX(-50%); bottom:calc(12px + env(safe-area-inset-bottom))}
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <audio id="boo-sound" src="./boo.mp3" preload="auto"></audio>
+    <div id="overlay" class="flood-overlay" aria-hidden="true"></div>
+
+    <!-- Initial window -->
+    <div id="intro" class="win center" role="dialog" aria-modal="true" aria-labelledby="t-intro">
+      <div class="titlebar" data-drag>
+        <div class="icon" aria-hidden="true"></div>
+        <div id="t-intro" class="title">Windows</div>
+        <div class="controls">
+          <button class="ctrl" aria-label="Close" title="Close"><span>×</span></button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="icon" aria-hidden="true"></div>
+        <div class="msg">Do you want to trigger an error?</div>
+      </div>
+      <div class="toolbar">
+        <button id="btn-yes" class="btn">Yes</button>
+        <button id="btn-no" class="btn">No</button>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" style="display:none">
+      <button id="btn-stop" class="btn" title="Stop the cascade">Stop</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const stage   = document.getElementById('stage');
+  const overlay = document.getElementById('overlay');
+  const intro   = document.getElementById('intro');
+  const hud     = document.getElementById('hud');
+  const btnYes  = document.getElementById('btn-yes');
+  const btnNo   = document.getElementById('btn-no');
+  const btnStop = document.getElementById('btn-stop');
+  const booSound= document.getElementById('boo-sound');
+
+  let zTop = 20;
+  let timers = [];
+  let flooding = false;
+  let spawnTimer = null;
+  let tickIndex = 0;
+  let ctx;
+
+  const smallScreen = matchMedia('(max-width: 520px), (max-height: 520px)');
+  function limits(){
+    return smallScreen.matches ? { interval: 90, maxWins: 120 } : { interval: 65, maxWins: 220 };
+  }
+
+  function showIntro(){
+    if (!stage.contains(intro)) stage.appendChild(intro);
+    intro.classList.remove('center');
+    intro.style.display = 'block';
+    placeIntro();
+    intro.style.zIndex = (++zTop).toString();
+  }
+  function hideIntro(){ intro.style.display = 'none'; }
+
+  function beep(freq, dur){
+    const f = typeof freq === 'number' ? freq : 880;
+    const d = typeof dur === 'number' ? dur : 0.09;
+    try{
+      ctx = ctx || new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.value = 0.03;
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      setTimeout(()=>{o.stop(); o.disconnect(); g.disconnect();}, d*1000);
+    }catch(e){}
+  }
+
+  /* ---------- Helpers ---------- */
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  // Bounds so that at least 'frac' of the window stays visible inside STAGE
+  function computeBoundsForMinVisibility(winW, winH, frac, W, H){
+    const f = Math.max(0, Math.min(1, frac || 0.1));
+    const VW = W ?? stage.clientWidth;
+    const VH = H ?? stage.clientHeight;
+    const minX = - (1 - f) * winW;
+    const maxX = VW - f * winW;
+    const minY = - (1 - f) * winH;
+    const maxY = VH - f * winH;
+    return { minX, maxX, minY, maxY };
+  }
+
+  /* ---------- Window generation (≥10% visible) ---------- */
+  function makeErrorWindow(opts){
+    const xIn = (opts && typeof opts.x === 'number') ? opts.x : 100;
+    const yIn = (opts && typeof opts.y === 'number') ? opts.y : 100;
+    const message = (opts && opts.message) ? opts.message : "An error has occurred.";
+    const cascade = !!(opts && opts.cascade);
+
+    // Hidden creation to measure
+    const win = document.createElement('div');
+    win.className = 'win flicker';
+    win.style.visibility = 'hidden';
+    win.style.pointerEvents = 'none';
+    win.style.left = '0px';
+    win.style.top  = '0px';
+    win.style.zIndex = (++zTop).toString();
+
+    win.innerHTML = (
+      '<div class="titlebar" data-drag>'+
+        '<div class="icon" aria-hidden="true"></div>'+
+        '<div class="title">Error</div>'+
+        '<div class="controls">'+
+          '<button class="ctrl" aria-label="Close" title="Close"><span>×</span></button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="content">'+
+        '<div class="icon" aria-hidden="true"></div>'+
+        '<div class="msg">'+ message +'</div>'+
+      '</div>'+
+      '<div class="toolbar">'+
+        '<button class="btn">OK</button>'+
+      '</div>'
+    );
+
+    stage.appendChild(win);
+
+    // Real measurements
+    const rect = win.getBoundingClientRect();
+    const wW = rect.width  || 260;
+    const wH = rect.height || 160;
+
+    // Position with ≥10% visible in stage
+    const f = 0.10;
+    const bounds = computeBoundsForMinVisibility(wW, wH, f);
+    const x0 = clamp(xIn, bounds.minX, bounds.maxX);
+    const y0 = clamp(yIn, bounds.minY, bounds.maxY);
+
+    win.style.left = x0 + 'px';
+    win.style.top  = y0 + 'px';
+    win.style.visibility = 'visible';
+    win.style.pointerEvents = 'auto';
+
+    attachDrag(win, f);
+
+    // Buttons
+    win.querySelectorAll('.ctrl, .toolbar .btn').forEach(function(b){
+      b.addEventListener('click', function(){
+        win.classList.add('shake');
+        setTimeout(function(){ win.remove(); }, 140);
+      });
+    });
+
+    win.addEventListener('pointerdown', function(){ win.style.zIndex=(++zTop).toString(); });
+
+    // Cascade
+    if(cascade){
+      for(let i=1;i<=6;i++){
+        ((i)=>{
+          timers.push(setTimeout(function(){
+            const r = 10*i;
+            makeErrorWindow({ x: x0 + r, y: y0 + r, message: randomMsg() });
+            beep(600+Math.random()*200, 0.06);
+          }, i*90));
+        })(i);
+      }
+    }
+    return win;
+  }
+
+  /* ---------- Bounded drag (≥10% visible) ---------- */
+  function attachDrag(win, minFracVisible){
+    const bar = win.querySelector('[data-drag]');
+    let offX=0, offY=0, drag=false, wW=0, wH=0;
+
+    function updateBoundsFromSize(){
+      const r = win.getBoundingClientRect();
+      wW = r.width || 260; wH = r.height || 160;
+    }
+
+    bar.addEventListener('pointerdown', function(e){
+      drag = true; win.setPointerCapture(e.pointerId);
+      updateBoundsFromSize();
+      const rect = win.getBoundingClientRect();
+      offX = e.clientX - rect.left; offY = e.clientY - rect.top;
+      win.style.zIndex = (++zTop).toString();
+    });
+
+    bar.addEventListener('pointermove', function(e){
+      if(!drag) return;
+      const b = computeBoundsForMinVisibility(wW, wH, minFracVisible || 0.10);
+      const x = clamp(e.clientX - offX, b.minX, b.maxX);
+      const y = clamp(e.clientY - offY, b.minY, b.maxY);
+      win.style.left = x + 'px';
+      win.style.top  = y + 'px';
+    });
+
+    bar.addEventListener('pointerup', function(e){
+      drag=false; try{ win.releasePointerCapture(e.pointerId);}catch(_){}
+    });
+  }
+
+  /* ---------- Random text ---------- */
+  function randomMsg(){
+    const msgs = [
+      'Error 0x0000000B: Blunder imminent.',
+      'The system has performed an illegal operation.',
+      'Not enough memory to display this message.',
+      'Explorer caused a general protection fault.',
+      'Please insert disk 17 to continue.',
+      'Unable to undo the last undo.',
+      'The "Mouse" device has bitten the cable.',
+      'Your computer is about to experience an emotion.'
+    ];
+    return msgs[Math.floor(Math.random()*msgs.length)];
+  }
+
+  /* ---------- Start/stop cascade ---------- */
+  function startFlood(opts){
+    const lim = limits();
+    const interval = (opts && typeof opts.interval === 'number') ? opts.interval : lim.interval;
+    if (flooding) return;
+    flooding = true;
+    stage.classList.add('flooding');
+    hud.style.display = 'block';
+
+    function tick(){
+      if (!flooding) return;
+      const W = stage.clientWidth  || 800;
+      const H = stage.clientHeight || 600;
+      const x = Math.floor((tickIndex * 14 + Math.random() * W * 0.6) % Math.max(140, W - 260));
+      const y = Math.floor((tickIndex * 10 + Math.random() * H * 0.6) % Math.max(120, H - 160));
+      makeErrorWindow({ x, y, message: randomMsg(), cascade: (tickIndex % 7 === 0) });
+      beep(700 + Math.random() * 200, 0.05);
+
+      // Limit windows based on screen
+      const wins = stage.querySelectorAll('.win');
+      const maxWins = lim.maxWins;
+      if (wins.length > maxWins) {
+        for (let i = 0; i < wins.length - maxWins; i++) wins[i].remove();
+      }
+
+      tickIndex++;
+      spawnTimer = setTimeout(tick, interval);
+    }
+
+    overlay.style.opacity = '0.8';
+    tick();
+  }
+
+  function stopAll(){
+    flooding = false;
+    if (spawnTimer) { clearTimeout(spawnTimer); spawnTimer = null; }
+    timers.forEach(function(t){ clearTimeout(t); }); timers.length = 0;
+    // Remove all windows except intro
+    stage.querySelectorAll('.win').forEach(function(w){ if(w!==intro) w.remove(); });
+    stage.classList.remove('flooding');
+    overlay.style.opacity = '0';
+    hud.style.display = 'none';
+    showIntro();
+  }
+
+  /* ---------- Intro & interactions ---------- */
+  intro.querySelector('.ctrl').addEventListener('click', function(){ hideIntro(); });
+  btnNo.addEventListener('click', function(){
+    if (!booSound) return;
+    try{ booSound.currentTime = 0; booSound.play(); }catch(e){}
+  });
+  btnYes.addEventListener('click', function(){
+    if (booSound && !booSound.paused) { try{ booSound.pause(); booSound.currentTime = 0; }catch(e){} }
+    hideIntro();
+    startFlood({});
+  });
+  btnStop.addEventListener('click', stopAll);
+
+  /* ---------- Intro placement (clamped to stage viewport) ---------- */
+  function placeIntro(){
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const safeB = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)')) || 0;
+    const safeT = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-top)')) || 0;
+
+    const w = Math.min(340, Math.max(240, Math.floor(W*0.82)));
+    intro.style.minWidth = w + 'px';
+
+    const rect = intro.getBoundingClientRect();
+    const winW = rect.width || w;
+    const winH = rect.height || 160;
+
+    let left = Math.round((W - winW) / 2);
+    let top  = Math.round((H - winH) / 2);
+
+    // Clamp to stay 100% visible
+    left = clamp(left, 12, Math.max(12, W - winW - 12));
+    top  = clamp(top,  12 + safeT, Math.max(12 + safeT, H - winH - (12 + safeB)));
+
+    intro.style.left = left + 'px';
+    intro.style.top  = top  + 'px';
+    intro.style.transform = 'none';
+  }
+
+  placeIntro();
+  window.addEventListener('resize', function(){ if (intro.style.display !== 'none') placeIntro(); });
+  window.addEventListener('orientationchange', function(){ setTimeout(()=>{ if (intro.style.display !== 'none') placeIntro(); }, 200); });
+
+  /* -------- Block global scroll, except inside .content -------- */
+  function preventUnlessContent(e){
+    if (!e.target.closest('.content')) e.preventDefault();
+  }
+  // On stage (enough for mobile & desktop)
+  stage.addEventListener('touchmove', preventUnlessContent, { passive:false });
+  stage.addEventListener('wheel',     preventUnlessContent, { passive:false });
+  document.addEventListener('keydown', function(e){
+    const keys = ['PageDown','PageUp','Home','End','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Space',' '];
+    const inEditable = e.target.closest('input,textarea,select,[contenteditable]');
+    if (!inEditable && keys.includes(e.key)) e.preventDefault();
+  }, { passive:false });
+})();
+</script>
+</body>
+</html>

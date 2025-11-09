@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inktober 2025 - Day 19</title>
+  <style>
+    :root{ --bg1:#0b1b2b; --bg2:#0e3a5b; --text:#e8f6ff; --hud:#e3f2fdcc; }
+    *{box-sizing:border-box}
+    html,body,.wrap{height:100%}
+    @supports (height:100dvh){ html,body,.wrap{height:100dvh} }
+    html,body{margin:0;background:linear-gradient(#06131e,#0b1b2b)}
+    body{
+      font:600 16px/1.4 system-ui,Segoe UI,Inter,Arial,sans-serif;color:var(--text);overflow:hidden;
+      overscroll-behavior:none; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    }
+    .wrap{position:fixed; inset:0}
+    canvas{position:absolute;inset:0;display:block;background:
+      radial-gradient(1200px 800px at 50% 120%, rgba(25,161,174,.15), transparent),
+      linear-gradient(180deg,#0b1b2b,#0e3a5b);
+      filter:contrast(1.03) saturate(1.05);
+    }
+    [hidden]{display:none!important} .overlay{z-index:5}
+
+    .hud{
+      position:absolute; inset-block-start:0; inset-inline:0;
+      display:flex; justify-content:space-between; align-items:start;
+      padding:
+        calc(max(12px, env(safe-area-inset-top) + 8px))
+        calc(max(16px, env(safe-area-inset-right) + 8px))
+        12px
+        calc(max(16px, env(safe-area-inset-left) + 8px));
+      pointer-events:none; user-select:none;
+      font-weight:700; letter-spacing:.03em; text-shadow:0 1px 0 #0006;
+    }
+    .hud .left,.hud .right{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .pill{background:var(--hud); color:#063146; backdrop-filter:blur(4px);
+      padding:6px 10px; border-radius:999px; box-shadow:0 4px 18px #0006; font-size:clamp(12px,2.8vw,14px)}
+    .brand{font-weight:800;text-transform:uppercase;letter-spacing:.2em;opacity:.9}
+    .help{opacity:.8}
+
+    .overlay{
+      position:absolute;inset:0;display:grid;place-items:center;
+      background:linear-gradient(#00000066,#00000022); color:var(--text);
+      text-align:center; padding:
+        calc(env(safe-area-inset-top) + 24px)
+        calc(env(safe-area-inset-right) + 24px)
+        calc(env(safe-area-inset-bottom) + 24px)
+        calc(env(safe-area-inset-left) + 24px);
+    }
+    .card{
+      max-inline-size:min(560px,92vw);
+      background:linear-gradient(180deg,#0e2a42ee,#0e2a4288);
+      border:1px solid #ffffff22; border-radius:20px; padding:22px 22px 18px;
+      box-shadow:0 30px 80px #000c, inset 0 1px 0 #ffffff18;
+      backdrop-filter: blur(10px);
+    }
+    .card h1{margin:.1em 0 .2em;font-size:clamp(24px,7vw,42px);letter-spacing:.06em}
+    .card p{margin:.3em 0;opacity:.9}
+    .btn{
+      display:inline-block; margin-top:14px; background:linear-gradient(90deg,#86e3ff,#b3e5f2);
+      color:#053049; padding:clamp(12px,3vw,16px) clamp(18px,5vw,22px); border-radius:999px; font-weight:800;
+      text-transform:uppercase; letter-spacing:.15em; cursor:pointer; user-select:none; font-size:clamp(14px,3.4vw,16px);
+      box-shadow:0 12px 30px #5bd0ff33, inset 0 1px 0 #fff;
+    }
+    .btn:active{transform:translateY(1px)}
+    .muted{opacity:.7;font-weight:600;font-size:.9rem}
+    @media (max-width:480px){ .hud .left,.hud .right{gap:8px} .brand{letter-spacing:.12em} }
+    :focus-visible{outline:2px solid #86e3ff; outline-offset:2px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game"></canvas>
+
+    <div class="hud" aria-live="polite" aria-atomic="true">
+      <div class="left">
+        <span class="pill brand">ICEBERG</span>
+        <span class="pill">Score: <span id="score">0</span></span>
+        <span class="pill">Best: <span id="best">0</span></span>
+      </div>
+      <div class="right help">
+        <span class="pill">
+          <span class="kbd">←</span> <span class="kbd">→</span> / <span class="kbd">A</span> <span class="kbd">D</span> — Pause: <span class="kbd">P</span>
+        </span>
+      </div>
+    </div>
+
+    <div id="start" class="overlay" role="dialog" aria-modal="true">
+      <div class="card">
+        <h1>Iceberg Slalom</h1>
+        <p>Avoid the <strong>icebergs</strong>!</p>
+        <p class="muted">Keyboard: ← → or A/D • Mobile: swipe/tap left-right • Pause: P / Esc</p>
+        <div id="play" class="btn" role="button" tabindex="0" aria-label="Play">Play</div>
+      </div>
+    </div>
+
+    <div id="over" class="overlay" hidden role="dialog" aria-modal="true">
+      <div class="card">
+        <h1>Crash!</h1>
+        <p>Score: <span id="finalScore">0</span> — Best: <span id="finalBest">0</span></p>
+        <div id="again" class="btn" role="button" tabindex="0" aria-label="Play Again">Play Again</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const DPR = Math.max(1, Math.min(2, devicePixelRatio || 1));
+  const cnv = document.getElementById('game');
+  const ctx = cnv.getContext('2d');
+
+  // UI
+  const $score = document.getElementById('score');
+  const $best  = document.getElementById('best');
+  const $start = document.getElementById('start');
+  const $over  = document.getElementById('over');
+  const $play  = document.getElementById('play');
+  const $again = document.getElementById('again');
+  const $finalScore = document.getElementById('finalScore');
+  const $finalBest  = document.getElementById('finalBest');
+
+  // --- Difficulté & spacing ---
+  const MAX_STRAIGHT_ROWS = 5;
+  const ZIGZAG_BIAS_START = 0.60;
+  const ZIGZAG_BIAS_END   = 0.90;
+
+  // Écart vertical minimal entre bords d'icebergs de voies différentes
+  const MIN_SEP_START = 40;   // ← + (était 28)
+  const MIN_SEP_END   = 78;   // ← + (était 56)
+
+  $start.removeAttribute('hidden'); $start.style.display='grid';
+  $over.setAttribute('hidden','');  $over.style.display='none';
+
+  // --- Anti-famine + équilibrage des voies ---
+  const STARVE_EDGE   = 0.20;
+  const STARVE_CENTER = 0.12;
+  const LANE_BASE     = [1.0, 0.45, 1.0];
+  let sinceBlocked = [0,0,0];
+  const laneWeight = (l) => Math.max(0, LANE_BASE[l] + (l === 1 ? STARVE_CENTER : STARVE_EDGE) * sinceBlocked[l]);
+
+  function weightedPick(arr, weightOf){
+    let sum = 0; for (const a of arr) sum += Math.max(0, weightOf(a));
+    let r = Math.random() * sum;
+    for (const a of arr){ r -= Math.max(0, weightOf(a)); if (r <= 0) return a; }
+    return arr[arr.length-1];
+  }
+
+  // --- Constantes gameplay ---
+  const LANES = 3;
+  const ROW_H = 120;
+  const GAP_INIT = 200, GAP_MIN = 30, GAP_DEC_PER_S = 30;
+
+  const BOAT_W = 76, BOAT_H = 110;
+  const HIT_PAD_Y = 14;
+  const SNOW_COUNT = 64;
+
+  const SPEED_BASE = 260, SPEED_MAX = 900, ACCEL_PER_S = 38;
+
+  const GRAZE_DIST = 26;
+
+  const BOAT_CIRCLES = [
+    { ox: 0, oy: -BOAT_H*0.22, r: 16 },
+    { ox: 0, oy:  BOAT_H*0.10, r: 15 }
+  ];
+  const ICE_SHRINK_X = 0.82;
+  const ICE_SHRINK_Y = 0.72;
+  const ZIGZAG_BIAS = 0.7, MAX_STREAK = 2;
+
+  const SEG_MIN_ROWS = 2;
+  const SEG_MAX_ROWS = 6;
+
+  // State
+  let W=0, H=0, laneW=0, laneXs=[];
+  let playing=false, paused=false, gameOver=false;
+  let lastT=0, speed=SPEED_BASE, distance=0, score=0, best=+(localStorage.getItem('arctic_best')||0);
+  let gapCur = GAP_INIT;
+
+  const player = { lane:1, x:0, y:0, tx:0 };
+
+  const rows = [];
+  let guaranteedLane = 1, sameLaneStreak = 0;
+
+  let segments = []; // {lane, top, bottom, st}
+  const activeSeg = new Array(LANES).fill(null);
+  const noBlock   = new Array(LANES).fill(0);
+
+  const snow = [];
+
+  // utils
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const randInt=(a,b)=> (Math.random()*(b-a+1)|0)+a;
+  const choice=arr=>arr[(Math.random()*arr.length)|0];
+
+  const lerp = (a,b,t)=> a + (b-a)*t;
+  function getDifficulty(){ return clamp((speed - SPEED_BASE)/(SPEED_MAX - SPEED_BASE), 0, 1); }
+  let straightRows = 0;
+
+  // Vraie taille viewport mobile
+  function resize(){
+    const vw = (window.visualViewport?.width  ?? innerWidth);
+    const vh = (window.visualViewport?.height ?? innerHeight);
+    cnv.width  = Math.floor(vw * DPR);
+    cnv.height = Math.floor(vh * DPR);
+    cnv.style.width  = vw + 'px';
+    cnv.style.height = vh + 'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+
+    W = cnv.width; H = cnv.height;
+
+    laneW = (W/DPR)/LANES;
+    laneXs = Array.from({length:LANES},(_,i)=>(i+0.5)*laneW);
+
+    player.lane = clamp(player.lane,0,LANES-1);
+    player.x = player.tx = laneXs[player.lane];
+    player.y = H/DPR - 140;
+
+    if(!snow.length){
+      for(let i=0;i<SNOW_COUNT;i++){
+        snow.push({x:Math.random()*W/DPR, y:Math.random()*H/DPR, r:Math.random()*1.6+0.4, v:14+Math.random()*24});
+      }
+    }
+  }
+  addEventListener('resize', ()=>requestAnimationFrame(resize), {passive:true});
+  addEventListener('orientationchange', ()=> setTimeout(resize, 180));
+  if (window.visualViewport){
+    visualViewport.addEventListener('resize', ()=>requestAnimationFrame(resize), {passive:true});
+    visualViewport.addEventListener('scroll', ()=>requestAnimationFrame(resize), {passive:true});
+  }
+
+  // --- Styles d’iceberg ---
+  function makeIceStyle(){
+    const n=26;
+    return {
+      jit:Array.from({length:n},()=>0.86+Math.random()*0.24),
+      rot:(Math.random()-0.5)*0.22,
+      crackPts:(()=>{const pts=[],len=3+(Math.random()*3|0);let ax=0,ay=0;for(let i=0;i<len;i++){ax+=(Math.random()-.5)*12;ay+=(Math.random()-.5)*10;pts.push({x:ax,y:ay});}return pts;})(),
+      hi:Math.random()*Math.PI*2,
+      glow:0
+    };
+  }
+
+  // Distances inter-voies pour éviter des “presque-murs”
+  function tooCloseAcrossLanes(lane, yTop, pad){
+    const yBot = yTop + ROW_H;
+    const overlapsWith = (seg) => !(yBot + pad <= seg.top || yTop - pad >= seg.bottom);
+    let overlaps = 0;
+
+    for (const s of segments){
+      if (s.lane === lane) continue;
+      if (overlapsWith(s)) overlaps++;
+    }
+    for (let k = 0; k < LANES; k++){
+      if (k === lane) continue;
+      const c = activeSeg[k];
+      if (c && overlapsWith(c)) overlaps++;
+    }
+    // Bord : interdit dès qu'il y a un chevauchement ; Centre : seulement si les deux côtés chevauchent
+    return lane === 1 ? (overlaps >= 2) : (overlaps >= 1);
+  }
+
+  // --- Outils “anti-mur” forts ---
+  function segOverlaps(seg, y0, h){
+    return !(seg.bottom <= y0 || seg.top >= y0 + h);
+  }
+  function laneCoveredIn(l, y0, h){
+    for (const s of segments) if (s.lane === l && segOverlaps(s, y0, h)) return true;
+    const cur = activeSeg[l]; if (cur && segOverlaps(cur, y0, h)) return true;
+    return false;
+  }
+  function allCovered(y0, h){
+    for (let l=0; l<LANES; l++) if (!laneCoveredIn(l, y0, h)) return false;
+    return true;
+  }
+  function forceOpen(y0, h, preferLane, blocked){
+    const covered = [0,1,2].filter(l => laneCoveredIn(l, y0, h));
+    const lane = covered.includes(preferLane) ? preferLane : (covered[0] ?? 1);
+
+    if (blocked.has(lane)) blocked.delete(lane);
+
+    const cur = activeSeg[lane];
+    if (cur && segOverlaps(cur, y0, h)){
+      cur.bottom = Math.min(cur.bottom, y0);
+      if (cur.bottom <= cur.top){ activeSeg[lane] = null; }
+      else { segments.push(cur); activeSeg[lane] = null; }
+    }
+
+    for (let i = segments.length-1; i >= 0; i--){
+      const s = segments[i]; if (s.lane !== lane) continue;
+      if (!segOverlaps(s, y0, h)) continue;
+
+      const cutBottomCost = Math.abs(y0 - s.top);
+      const cutTopCost    = Math.abs(s.bottom - (y0 + h));
+      if (cutBottomCost <= cutTopCost) s.bottom = Math.min(s.bottom, y0);
+      else                              s.top    = Math.max(s.top,    y0 + h);
+
+      if (s.bottom <= s.top) segments.splice(i, 1);
+    }
+  }
+
+  // --- Génération d'une rangée ---
+  function makeRow(y){
+    const blocked = new Set();
+    const lanes = [0,1,2];
+
+    const prev = guaranteedLane;
+    const near = [prev, prev-1, prev+1].filter(l => l>=0 && l<LANES);
+    const alt  = near.filter(l => l !== prev);
+
+    const diff = getDifficulty();
+    const bias = lerp(ZIGZAG_BIAS_START, ZIGZAG_BIAS_END, diff);
+    const mustTurn = (straightRows >= MAX_STRAIGHT_ROWS);
+
+    let next;
+    if (mustTurn && alt.length) next = choice(alt);
+    else if (alt.length && (Math.random() < bias || sameLaneStreak >= MAX_STREAK)) next = choice(alt);
+    else next = choice(near);
+
+    // Réservations (corridor sûr)
+    const SAFE_H = (BOAT_H - 2*HIT_PAD_Y) + 8;
+    const reserveRows = Math.max(1, Math.ceil(SAFE_H / Math.max(1, gapCur)));
+    const reservedNow = new Set([next]);
+    for (let l = 0; l < LANES; l++) if (noBlock[l] > 0) reservedNow.add(l);
+    if (reservedNow.size >= LANES){
+      for (let l = 0; l < LANES; l++) if (l !== next && reservedNow.has(l)) { reservedNow.delete(l); break; }
+    }
+
+    // 1) prolonger / figer segments actifs
+    for (let l=0; l<LANES; l++){
+      const cur = activeSeg[l];
+      if (!cur) continue;
+      if (reservedNow.has(l)){
+        segments.push({ lane: l, top: cur.top, bottom: cur.bottom, st: cur.st });
+        activeSeg[l] = null;
+      } else {
+        blocked.add(l);
+        cur.top = y;
+        cur.rowsLeft--;
+        if (cur.rowsLeft <= 0){
+          segments.push({ lane: l, top: cur.top, bottom: cur.bottom, st: cur.st });
+          activeSeg[l] = null;
+        }
+      }
+    }
+
+    // Densité : proba de 2 voies
+    const P_TWO_START = 0.50, P_TWO_END = 0.78;
+    const pTwo = lerp(P_TWO_START, P_TWO_END, diff);
+    const desired = (Math.random() < pTwo) ? 2 : 1;
+
+    const room    = Math.max(0, (LANES - reservedNow.size) - blocked.size);
+    let canBlock  = lanes.filter(l => !reservedNow.has(l) && !blocked.has(l) && !activeSeg[l]);
+    let need      = Math.min(Math.max(0, desired - blocked.size), room, canBlock.length);
+
+    const pad = lerp(MIN_SEP_START, MIN_SEP_END, diff);
+
+    while (need-- > 0){
+      const spaced = canBlock.filter(l => !tooCloseAcrossLanes(l, y, pad));
+      if (!spaced.length) break;
+
+      const l = weightedPick(spaced, laneWeight);
+      canBlock.splice(canBlock.indexOf(l), 1);
+
+      blocked.add(l);
+      const maxRowsDyn = Math.max(SEG_MIN_ROWS, Math.round(lerp(6, 3, diff)));
+      const rowsLen    = randInt(SEG_MIN_ROWS, maxRowsDyn);
+      activeSeg[l] = { lane:l, top:y, bottom:y+ROW_H, rowsLeft:rowsLen-1, st:makeIceStyle() };
+    }
+
+    // --- GARANTIE ANTI-MUR ABSOLUE ---
+    const windowH = (BOAT_H - 2*HIT_PAD_Y) + 16;
+    const step = Math.max(ROW_H/3, windowH/6);
+    for (let y0 = y - windowH; y0 <= y; y0 += step){
+      if (allCovered(y0, windowH)){
+        forceOpen(y0, windowH, next, blocked);
+      }
+    }
+
+    // --- MAJ des garanties/compteurs ---
+    sameLaneStreak = (next === prev) ? (sameLaneStreak + 1) : 0;
+    straightRows   = (next === prev) ? (straightRows + 1)   : 0;
+    guaranteedLane = next;
+
+    const rsPrev = (next === prev) ? Math.max(1, Math.floor(reserveRows/2)) : 1;
+    const rsNext = reserveRows;
+    noBlock[prev] = Math.max(noBlock[prev], rsPrev);
+    noBlock[next] = Math.max(noBlock[next], rsNext);
+    for (let i = 0; i < LANES; i++) if (noBlock[i] > 0) noBlock[i]--;
+
+    for (let i=0;i<LANES;i++){
+      sinceBlocked[i] = blocked.has(i) ? 0 : sinceBlocked[i] + 1;
+    }
+
+    return { y, blocked };
+  }
+
+  function spawnIfNeeded(){
+    const targetTop = -(H/DPR)*2 - 600;
+    while(rows.length===0 || rows[rows.length-1].y > targetTop){
+      const lastY = rows.length ? rows[rows.length-1].y : -ROW_H;
+      const r = makeRow(lastY - gapCur);
+      rows.push(r);
+    }
+  }
+
+  function getVisibleSegments(){
+    const list=[];
+    const topLimit = -200, botLimit = H/DPR + 200;
+    for(const s of segments){ if(s.bottom >= topLimit && s.top <= botLimit) list.push(s); }
+    for (let l=0; l<LANES; l++){
+      const cur = activeSeg[l];
+      if (cur && cur.bottom >= topLimit && cur.top <= botLimit){
+        list.push({ lane:l, top: cur.top, bottom: cur.bottom, st: cur.st });
+      }
+    }
+    return list;
+  }
+
+  // ---- Input
+  function goLeft(){ setLane(player.lane-1); }
+  function goRight(){ setLane(player.lane+1); }
+  function setLane(l){
+    const nl=clamp(l,0,LANES-1);
+    if(nl!==player.lane){ player.lane=nl; player.tx=laneXs[nl]; }
+  }
+  addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A'){ goLeft(); }
+    if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'){ goRight(); }
+    if(e.key==='p'||e.key==='P'||e.key==='Escape'){ if(playing && !gameOver) paused=!paused; }
+    if(['ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+  }, {passive:false});
+
+  // Touch: swipe + tap demi-écran
+  let touchX=null,touchY=null,touchT=0;
+  addEventListener('touchstart',e=>{
+    const t=e.changedTouches[0]; touchX=t.clientX; touchY=t.clientY; touchT=performance.now();
+  },{passive:true});
+  addEventListener('touchend',e=>{
+    const t=e.changedTouches[0]; if(touchX==null) return;
+    const dx=t.clientX-touchX, dy=t.clientY-touchY, dt=performance.now()-touchT;
+    if(Math.abs(dx)>32 && Math.abs(dx)>Math.abs(dy)){ dx<0?goLeft():goRight(); }
+    else if (dt<220){ const mid=(window.visualViewport?.width ?? innerWidth)/2; (t.clientX<mid)?goLeft():goRight(); }
+    touchX=touchY=null;
+  },{passive:true});
+
+  // ---- Boutons
+  function startGame(){
+    $start.hidden=true;
+    reset();
+    loop(performance.now());
+  }
+  function replay(){
+    $over.setAttribute('hidden',''); $over.style.display='none';
+    reset();
+    loop(performance.now());
+  }
+  $play.addEventListener('click', startGame);
+  $play.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') startGame(); });
+  $start.addEventListener('click', e=>{ if(e.target===$start) startGame(); });
+  $again.addEventListener('click', replay);
+  $again.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') replay(); });
+
+  // --- Rendu
+  function drawOceanBG(t){
+    const g=ctx.createLinearGradient(0,0,0,H/DPR);
+    g.addColorStop(0,'#0a2236'); g.addColorStop(.45,'#0b2b43'); g.addColorStop(1,'#0d3a58');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W/DPR,H/DPR);
+
+    ctx.globalAlpha=.06;
+    for(let i=0;i<6;i++){
+      const y=(Math.sin(t*0.0004+i)*40+i*60)+(H/DPR)*.2;
+      ctx.fillStyle='#66e0f0';
+      ctx.beginPath(); ctx.ellipse(W/DPR/2,y,W/DPR*0.7,18,0,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawSnow(dt){
+    ctx.globalAlpha=.65; ctx.fillStyle='#ffffff';
+    for(const s of snow){
+      s.y+=s.v*dt; s.x+=Math.sin(s.y*.05)*.12;
+      if(s.y>H/DPR){ s.y=-4; s.x=Math.random()*W/DPR; }
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawLanes(){
+    ctx.strokeStyle='#ffffff22'; ctx.lineWidth=2;
+    for(let i=1;i<LANES;i++){
+      const x=i*laneW; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H/DPR); ctx.stroke();
+    }
+  }
+
+  function drawBoat(x, y, t){
+    const lean = Math.max(-0.35, Math.min(0.35, (player.tx - player.x) * 0.05));
+    const bob  = Math.sin(t*0.003 + x*0.03) * 2;
+
+    for(let k=0;k<4;k++){
+      ctx.save();
+      ctx.globalAlpha = 0.20 - k*0.04;
+      ctx.lineWidth = 8 - k*1.6;
+      ctx.strokeStyle = '#e9f8ff';
+      ctx.beginPath();
+      const sx = x, sy = y + BOAT_H/2 - 8;
+      const cx1 = sx + Math.sin(t*0.002 + k)*12, cy1 = sy + 26 + k*14;
+      const cx2 = sx + Math.sin(t*0.002 + k + 1.4)*18, cy2 = sy + 54 + k*20;
+      const ex  = sx, ey = sy + 80 + k*26;
+      ctx.moveTo(sx, sy);
+      ctx.bezierCurveTo(cx1, cy1, cx2, cy2, ex, ey);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.rotate(lean);
+
+    ctx.globalAlpha = .35;
+    ctx.fillStyle = '#000000';
+    ctx.beginPath(); ctx.ellipse(0, 40, BOAT_W*.58, 18, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    const gHull = ctx.createLinearGradient(0, -BOAT_H/2, 0, BOAT_H/2);
+    gHull.addColorStop(0, '#f7fbff');
+    gHull.addColorStop(.55, '#cfe9f7');
+    gHull.addColorStop(1, '#b7d9ee');
+    ctx.fillStyle = gHull;
+    ctx.strokeStyle = '#86c6dd';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0,-BOAT_H/2);
+    ctx.quadraticCurveTo( BOAT_W*.52, -BOAT_H*.38, BOAT_W*.48,  6);
+    ctx.quadraticCurveTo( BOAT_W*.46,  BOAT_H/2,     0,         BOAT_H/2);
+    ctx.quadraticCurveTo(-BOAT_W*.46,  BOAT_H/2,    -BOAT_W*.48, 6);
+    ctx.quadraticCurveTo(-BOAT_W*.52, -BOAT_H*.38,   0,         -BOAT_H/2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    const deckW = BOAT_W*0.78, deckH = BOAT_H*0.58;
+    const gDeck = ctx.createLinearGradient(0,-deckH/2,0,deckH/2);
+    gDeck.addColorStop(0,'#e6f7ff');
+    gDeck.addColorStop(1,'#cfe9f7');
+    ctx.fillStyle = gDeck;
+    ctx.beginPath(); ctx.roundRect(-deckW/2, -deckH/2+6, deckW, deckH, 10); ctx.fill();
+
+    const cabW = BOAT_W*0.50, cabH = 34;
+    const gGlass = ctx.createLinearGradient(0,-cabH/2,0,cabH/2);
+    gGlass.addColorStop(0,'#eafaff');
+    gGlass.addColorStop(1,'#a9d8ee');
+    ctx.fillStyle = gGlass;
+    ctx.beginPath(); ctx.roundRect(-cabW/2, -6, cabW, cabH, 6); ctx.fill();
+
+    ctx.globalAlpha = .55; ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.ellipse(-cabW*0.15, 2, cabW*0.26, cabH*0.22, -0.2, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = '#bfe6ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0, BOAT_H/2 - 12, BOAT_W*0.74, 6, 0, 0, Math.PI); ctx.stroke();
+
+    ctx.globalAlpha = .9;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, -BOAT_H/2 - 2);
+    ctx.quadraticCurveTo(18, -BOAT_H/2 + 10, 26, -BOAT_H/2 + 22);
+    ctx.moveTo(0, -BOAT_H/2 - 2);
+    ctx.quadraticCurveTo(-18, -BOAT_H/2 + 10, -26, -BOAT_H/2 + 22);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = '#eaf6ffcc'; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(0, 6, deckW*0.52, deckH*0.44, 0, 0, Math.PI*2);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#dff3ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, -BOAT_H/2 + 8); ctx.lineTo(0, -BOAT_H/2 - 18); ctx.stroke();
+    ctx.fillStyle = '#f6e7e1';
+    ctx.beginPath(); ctx.moveTo(0, -BOAT_H/2 - 18); ctx.lineTo(16, -BOAT_H/2 - 14); ctx.lineTo(0, -BOAT_H/2 - 10); ctx.closePath(); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawIceSegment(seg){
+    const cx = laneXs[seg.lane];
+    const height = seg.bottom - seg.top;
+    const rx = laneW * 0.42;
+    const ry = Math.max(ROW_H*0.45, (height * 0.5) * 0.98);
+    const cy = (seg.top + seg.bottom) / 2;
+
+    const st=seg.st, n=st.jit.length;
+
+    if(st.glow>0.01){
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(st.rot);
+      ctx.globalCompositeOperation='screen'; ctx.globalAlpha=0.35*st.glow;
+      ctx.strokeStyle='#7df3ff'; ctx.lineWidth=18;
+      ctx.beginPath();
+      for(let i=0;i<n;i++){
+        const t=(i/n)*Math.PI*2, j=st.jit[i]*1.06;
+        const px=Math.cos(t)*rx*j*1.08, py=Math.sin(t)*ry*j*1.08;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.stroke(); ctx.restore();
+      st.glow*=0.90;
+    }
+
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(st.rot);
+    ctx.globalAlpha=0.22; ctx.fillStyle='#19a1ae';
+    ctx.beginPath(); ctx.ellipse(0,ry*0.22,rx*0.98,Math.min(ry*0.65, 240),0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+
+    const outline=[];
+    for(let i=0;i<n;i++){
+      const t=(i/n)*Math.PI*2, j=st.jit[i];
+      outline.push([Math.cos(t)*rx*j, Math.sin(t)*ry*j]);
+    }
+
+    const g=ctx.createLinearGradient(-rx,-ry,rx,ry);
+    g.addColorStop(0,'#ecfbff'); g.addColorStop(.5,'#d6f0fb'); g.addColorStop(1,'#c0e4f6');
+    ctx.fillStyle=g; ctx.strokeStyle='#bfe6ff'; ctx.lineWidth=2.5;
+
+    ctx.beginPath(); ctx.moveTo(outline[0][0],outline[0][1]);
+    for(let i=1;i<outline.length;i++) ctx.lineTo(outline[i][0],outline[i][1]);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.save(); ctx.clip(); ctx.globalAlpha=.5; ctx.fillStyle='#a7d2e8';
+    ctx.beginPath();
+    for(let i=0;i<n;i++){
+      const ang=(i/n)*Math.PI*2;
+      if(ang<st.hi || ang>st.hi+Math.PI*0.8) continue;
+      const px=Math.cos(ang)*rx*1.02, py=Math.sin(ang)*ry*1.02;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.fill(); ctx.globalAlpha=1; ctx.restore();
+
+    ctx.globalAlpha=.45; ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.ellipse(-rx*0.28,-ry*0.26,rx*0.36,ry*0.18,-0.2,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1;
+
+    ctx.strokeStyle='#97cde4'; ctx.lineWidth=1.2;
+    ctx.beginPath();
+    for(let i=0;i<st.crackPts.length;i++){
+      const p=st.crackPts[i];
+      if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawIcebergs(list){ for(const s of list) drawIceSegment(s); }
+
+  function circleVsOBB(cx, cy, r, rcx, rcy, ex, ey, rot){
+    const c = Math.cos(-rot), s = Math.sin(-rot);
+    const lx = c*(cx-rcx) - s*(cy-rcy);
+    const ly = s*(cx-rcx) + c*(cy-rcy);
+    const nx = clamp(lx, -ex, ex);
+    const ny = clamp(ly, -ey, ey);
+    const dx = lx - nx, dy = ly - ny;
+    return dx*dx + dy*dy <= r*r;
+  }
+  function pointToOBBDist2(px, py, rcx, rcy, ex, ey, rot){
+    const c = Math.cos(-rot), s = Math.sin(-rot);
+    const lx = c*(px-rcx) - s*(py-rcy);
+    const ly = s*(px-rcx) + c*(py-rcy);
+    const nx = clamp(lx, -ex, ex);
+    const ny = clamp(ly, -ey, ey);
+    const dx = lx - nx, dy = ly - ny;
+    return dx*dx + dy*dy;
+  }
+
+  function collideSeg(seg){
+    if(player.lane!==seg.lane) return false;
+    const icx = laneXs[seg.lane];
+    const icy = (seg.top + seg.bottom) / 2;
+    const rx = laneW * 0.42 * ICE_SHRINK_X;
+    const ry = Math.max(ROW_H*0.45, (seg.bottom - seg.top)*0.5*0.98) * ICE_SHRINK_Y;
+    const rot = seg.st.rot;
+
+    const lean = Math.max(-0.35, Math.min(0.35, (player.tx - player.x) * 0.05));
+    for(const c of BOAT_CIRCLES){
+      const cx = player.x + c.ox*Math.cos(lean) - c.oy*Math.sin(lean);
+      const cy = player.y + c.ox*Math.sin(lean) + c.oy*Math.cos(lean);
+      if(circleVsOBB(cx, cy, c.r, icx, icy, rx, ry, rot)) return true;
+    }
+    return false;
+  }
+  function grazeSeg(seg){
+    if(player.lane!==seg.lane) return false;
+    const icx = laneXs[seg.lane];
+    const icy = (seg.top + seg.bottom) / 2;
+    const rx = laneW * 0.42 * ICE_SHRINK_X;
+    const ry = Math.max(ROW_H*0.45, (seg.bottom - seg.top)*0.5*0.98) * ICE_SHRINK_Y;
+    const rot = seg.st.rot;
+
+    const lean = Math.max(-0.35, Math.min(0.35, (player.tx - player.x) * 0.05));
+    let grazed = false;
+    for(const c of BOAT_CIRCLES){
+      const cx = player.x + c.ox*Math.cos(lean) - c.oy*Math.sin(lean);
+      const cy = player.y + c.ox*Math.sin(lean) + c.oy*Math.cos(lean);
+      const d2 = pointToOBBDist2(cx, cy, icx, icy, rx, ry, rot);
+      if(d2 < (c.r + GRAZE_DIST)*(c.r + GRAZE_DIST) && d2 > c.r*c.r){
+        seg.st.glow = Math.min(1, seg.st.glow + 0.5);
+        grazed = true;
+      }
+    }
+    return grazed;
+  }
+
+  function endGame(){
+    if(gameOver) return;
+    playing=false; gameOver=true; paused=false;
+    best=Math.max(best, score|0);
+    localStorage.setItem('arctic_best', String(best));
+    $finalScore.textContent=String(score|0);
+    $finalBest.textContent=String(best);
+    $over.removeAttribute('hidden'); $over.style.display='grid';
+  }
+
+  function reset(){
+    speed=SPEED_BASE; gapCur=GAP_INIT; distance=0; score=0;
+    playing=true; paused=false; gameOver=false;
+    lastT=performance.now();
+
+    rows.length=0; segments.length=0;
+    for(let i=0;i<LANES;i++){ activeSeg[i]=null; noBlock[i]=0; }
+    sinceBlocked = [0,0,0];
+
+    guaranteedLane = Math.floor(Math.random() * LANES);
+    sameLaneStreak = 0;
+    player.lane = guaranteedLane;
+    player.x = player.tx = laneXs[guaranteedLane];
+
+    // Précharge suffisante
+    let y=-ROW_H;
+    const preloadHeight=(H/DPR)*2 + 800;
+    while(-y < preloadHeight){
+      const r = makeRow(y);
+      rows.push(r);
+      y -= gapCur;
+    }
+
+    $best.textContent = String(best);
+    $score.textContent = '0';
+    $over.setAttribute('hidden',''); $over.style.display='none';
+  }
+
+  function spawnLoopAndClean(dy){
+    for(const r of rows){ r.y += dy; }
+    for(const s of segments){ s.top += dy; s.bottom += dy; }
+    for (let l=0; l<LANES; l++){
+      const cur = activeSeg[l];
+      if (cur){ cur.top += dy; cur.bottom += dy; }
+    }
+
+    while(rows.length && rows[0].y > H/DPR){ rows.shift(); }
+    segments = segments.filter(s => s.top <= H/DPR + 200);
+
+    spawnIfNeeded();
+  }
+
+  function loop(t){
+    if(!playing) return;
+    const dt=Math.min(0.032,(t-lastT)/1000);
+    lastT=t;
+
+    drawOceanBG(t);
+    drawLanes();
+
+    if(!paused){
+      speed = Math.min(SPEED_MAX, speed + ACCEL_PER_S*dt);
+      gapCur = Math.max(GAP_MIN, gapCur - GAP_DEC_PER_S*dt);
+
+      const dy = speed*dt;
+      distance += dy;
+      score += dy*0.12;
+      $score.textContent = String(score|0);
+
+      spawnLoopAndClean(dy);
+
+      const vis = getVisibleSegments();
+      for(const s of vis){
+        if(collideSeg(s)){ endGame(); break; }
+        else grazeSeg(s);
+      }
+      drawIcebergs(vis);
+      drawBoat(player.x, player.y, t);
+      drawSnow(dt);
+
+      player.x += (player.tx - player.x) * Math.min(1, dt*12);
+    } else {
+      const vis = getVisibleSegments();
+      drawIcebergs(vis);
+      drawBoat(player.x, player.y, t);
+      drawSnow(0);
+      ctx.fillStyle='#00000088'; ctx.fillRect(0,0,W/DPR,H/DPR);
+      ctx.fillStyle='#eaf6ff'; ctx.font='700 28px system-ui,Segoe UI,Inter';
+      ctx.textAlign='center'; ctx.fillText('Pause — appuie sur P pour reprendre', W/DPR/2, H/DPR/2);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  // boot
+  resize();
+  $best.textContent = String(best);
+})();
+</script>
+</body>
+</html>
