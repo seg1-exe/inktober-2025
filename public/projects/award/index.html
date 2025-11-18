@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inktober 2025 - Jour 31</title>
+  <title>Inktober 2025 - Day 31</title>
   <meta name="theme-color" content="#000000" />
-  <!-- Confettis -->
+  <!-- Confetti -->
   <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <style>
     /* ============================================================
-       THEME MINIMALISTE NOIR & BLANC
+       MINIMALIST BLACK & WHITE THEME
        ============================================================ */
     :root{
       --bg:#ffffff;
@@ -100,7 +100,7 @@
     .feedback{ min-height:22px; margin-top:8px; font-weight:700 }
     .ok{ color: var(--ok) } .ko{ color: var(--ko) } .warn{ color:#8a6a00 }
 
-    /* Zone vidéo : hauteur fixe responsive, média centré (height:100%; width:auto) */
+    /* Video area: fixed responsive height, centered media (height:100%; width:auto) */
     .video-wrap{
       width:100%;
       height:min(60vh, 560px);
@@ -123,7 +123,7 @@
       object-fit:contain;
     }
 
-    /* Bouton d’amorçage du son (si le navigateur bloque l’auto-play avec son) */
+    /* Sound bootstrap button (if the browser blocks autoplay with sound) */
     .sound-nudge{
       position:absolute; inset:auto 12px 12px auto;
       border:1px solid #000; background:#fff; color:#000; border-radius:999px; padding:.5rem .8rem;
@@ -136,76 +136,76 @@
 <body>
   <div class="container">
     <header class="card" style="margin-bottom:14px">
-      <h1>Deviens un vrai iPad kid&nbsp;!</h1>
-      <p class="lead">3 essais, un indice accessible, et du brainrot</p>
+      <h1>Become a real iPad kid!</h1>
+      <p class="lead">3 attempts, a hint, and pure brainrot</p>
     </header>
 
     <main class="screens">
-      <!-- ACCUEIL -->
+      <!-- HOME -->
       <section id="home" class="screen active" aria-labelledby="title-home">
         <div class="grid">
           <div class="card">
-            <h2 id="title-home">Commencer</h2>
-            <p class="lead">Choisis une catégorie :</p>
+            <h2 id="title-home">Get started</h2>
+            <p class="lead">Pick a category:</p>
             <div class="grid">
-              <button onclick="startGame('math')">Mathématiques</button>
-              <button onclick="startGame('riddle')">Devinettes</button>
-              <button onclick="startGame('rebus')">Rébus</button>
+              <button onclick="startGame('math')">Math</button>
+              <button onclick="startGame('riddle')">Riddles</button>
+              <button onclick="startGame('rebus')">Rebus</button>
               <button class="btn-outline" onclick="startGame('random')">Surprise</button>
             </div>
           </div>
           <div class="card">
-            <h3>Rappels</h3>
-            <p class="lead">Indice accessible. Au bout de 3 erreurs, la solution s’affiche.</p>
+            <h3>Reminder</h3>
+            <p class="lead">Hint available. After 3 mistakes, the solution is revealed.</p>
             <ul style="margin:.2rem 0 0.2rem; padding-left: 1.1rem; color:#333">
-              <li>Réponses insensibles à la casse/accents.</li>
-              <li>Rébus : attention aux espaces.</li>
-              <li>Récompense : vidéo (avec son) + confettis.</li>
+              <li>Answers ignore case and accents.</li>
+              <li>Rebus: watch out for spaces.</li>
+              <li>Reward: video (with sound) + confetti.</li>
             </ul>
           </div>
         </div>
       </section>
 
-      <!-- JEU -->
+      <!-- GAME -->
       <section id="game" class="screen" aria-labelledby="title-game">
         <div class="card">
           <div class="statusbar" role="status" aria-live="polite">
             <div class="cat"><span id="game-cat">—</span></div>
-            <div class="tries">Essais restants : <b id="tries">3</b></div>
+            <div class="tries">Attempts left: <b id="tries">3</b></div>
           </div>
 
-          <h2 id="title-game">Ton énigme</h2>
+          <h2 id="title-game">Your puzzle</h2>
           <div class="question" id="question">…</div>
 
-          <label for="answer" class="sr-only" style="position:absolute; left:-9999px;">Ta réponse</label>
-          <input id="answer" type="text" placeholder="Ta réponse…" autocomplete="off" inputmode="text" />
+          <label for="answer" class="sr-only" style="position:absolute; left:-9999px;">Your answer</label>
+          <input id="answer" type="text" placeholder="Your answer…" autocomplete="off" inputmode="text" />
 
           <div class="toolbar">
-            <button onclick="checkAnswer()">Valider</button>
-            <!-- Sémantique : bouton qui contrôle l’aside d’indice -->
-            <button id="hint-btn" class="btn-ghost" aria-controls="hint" aria-expanded="false" onclick="toggleHint()">Indice</button>
-            <button class="btn-ghost" onclick="backHome()">Accueil</button>
+            <button onclick="checkAnswer()">Submit</button>
+            <!-- Semantics: button that controls the hint aside -->
+            <button id="hint-btn" class="btn-ghost" aria-controls="hint" aria-expanded="false" onclick="toggleHint()">Hint</button>
+            <button class="btn-ghost" onclick="backHome()">Home</button>
           </div>
 
-          <!-- Indice sémantique et accessible -->
+          <!-- Semantic, accessible hint -->
           <aside id="hint" class="hint" role="note" aria-live="polite" aria-hidden="true"></aside>
 
           <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
         </div>
       </section>
 
-      <!-- RECOMPENSE -->
+      <!-- REWARD -->
       <section id="reward" class="screen" aria-labelledby="title-reward">
         <div class="card">
-          <h2 id="title-reward">Bravo&nbsp;! Récompense débloquée</h2>
-          <p class="lead">Profite du brainrot, puis enchaîne une autre énigme.</p>
-          <div class="video-wrap" id="video-reward" title="Récompense vidéo">
-            <button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Activer le son</button>
+          <h2 id="title-reward">Nice! Reward unlocked</h2>
+          <p class="lead">Enjoy the brainrot, then jump into another puzzle.</p>
+          <div class="video-wrap" id="video-reward" title="Video reward">
+            <button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Turn sound on</button>
           </div>
           <div class="toolbar">
-            <button onclick="startGame('random')">Nouvelle énigme (Surprise)</button>
-            <button class="btn-outline" onclick="goCategory()" id="again-same">Rejouer même catégorie</button>
-            <button class="btn-ghost" onclick="copyVideoLink()">Partager la vidéo</button>
+            <button onclick="startGame('random')">New puzzle (Surprise)</button>
+            <button class="btn-outline" onclick="goCategory()" id="again-same">Play same category again</button>
+            <button class="btn-ghost" onclick="copyVideoLink()">Share the video</button>
           </div>
           <div id="copy-state" class="feedback" style="text-align:center"></div>
         </div>
@@ -215,7 +215,7 @@
 
   <script>
     // ============================================================
-    //  UTILITAIRES D'UI
+    //  UI HELPERS
     // ============================================================
     const $ = (sel) => document.querySelector(sel);
     const screens = { home: $("#home"), game: $("#game"), reward: $("#reward") };
@@ -230,7 +230,7 @@
     const sleep = (ms)=> new Promise(r=>setTimeout(r,ms));
 
     // ============================================================
-    //  SONS (Web Audio)
+    //  SOUNDS (Web Audio)
     // ============================================================
     let audio;
     function getAC(){
@@ -262,32 +262,57 @@
     }
 
     // ============================================================
-    //  BANQUE D'ENIGMES
+    //  PUZZLE BANK
     // ============================================================
     const bankMath = [
-      { question: "Résous : 2x + 3 = 7. Trouve x.", answer: "2", hint: "Soustrais 3 puis divise par 2." },
-      { question: "Quel est le résultat de 7 × 8 ?", answer: "56", hint: "Table de 7." },
-      { question: "Si 3 chats attrapent 3 souris en 3 minutes, combien de chats pour attraper 100 souris en 100 minutes ?", answer: "3", hint: "Le rythme est linéaire par chat." },
-      { question: "50 % de 2 vaut 2 % de quel nombre ?", answer: "50", hint: "0,5 × 2 = 1, donc 0,02 × ? = 1." },
-      { question: "Une pizza de 30 cm vaut 12 €. À prix proportionnel à la surface, combien coûte une pizza de 60 cm ?", answer: "48", aliases:["48€","48 euros","48e"], hint: "Surface d'un disque = π×rxr" },
+      { question: "Solve: 2x + 3 = 7. Find x.", answer: "2", hint: "Subtract 3, then divide by 2." },
+      { question: "What is 7 × 8?", answer: "56", hint: "Think of the 7 times table." },
+      { question: "If 3 cats catch 3 mice in 3 minutes, how many cats are needed to catch 100 mice in 100 minutes?", answer: "3", hint: "The rate is linear per cat." },
+      { question: "50% of 2 is 2% of which number?", answer: "50", hint: "0.5 × 2 = 1, so 0.02 × ? = 1." },
+      { question: "A 30 cm pizza costs €12. If the price is proportional to the area, how much does a 60 cm pizza cost?", answer: "48", aliases:["48€","48 euros","48e","48 Euro","48 Euros"], hint: "Area of a circle = π × r × r." },
     ];
     const bankRiddle = [
-      { question: "Je suis toujours devant toi mais on ne peut jamais me voir. Qui suis-je ?", answer: "l'avenir", aliases:["avenir"], hint: "Pense au temps." },
-      { question: "Qu'est-ce qui peut traverser une vitre sans la briser ?", answer: "la lumiere", aliases:["lumiere","lumière", "la lumière"], hint: "Ondes..." },
-      { question: "Plus on m'en enlève, plus je grandis. Qui suis-je ?", answer: "un trou", aliases:["trou"], hint: "Dans le sol, dans le fromage..." },
-      { question: "Je commence la nuit et je finis le matin. Qui suis-je ?", answer: "lettre n", aliases:["n","la lettre n","lettren"], hint: "Observe les mots eux-mêmes." },
-      { question: "J’ai des villes mais pas de maisons, des montagnes mais pas d’arbres. Qui suis-je ?", answer: "une carte", aliases:["carte","map"], hint: "Utile pour voyager." },
+      {
+        question: "I am always in front of you but you can never see me. What am I?",
+        answer: "the future",
+        aliases:["future"],
+        hint: "Think about time."
+      },
+      {
+        question: "What can pass through glass without breaking it?",
+        answer: "light",
+        aliases:["the light"],
+        hint: "Waves..."
+      },
+      {
+        question: "The more you take away from me, the bigger I get. What am I?",
+        answer: "a hole",
+        aliases:["hole"],
+        hint: "In the ground, in cheese..."
+      },
+      {
+        question: "I start the word 'never' and end the word 'again'. What am I?",
+        answer: "letter n",
+        aliases:["n","the letter n","lettern"],
+        hint: "Look at the words themselves."
+      },
+      {
+        question: "I have cities but no houses, mountains but no trees, and water but no fish. What am I?",
+        answer: "a map",
+        aliases:["map"],
+        hint: "Useful when you travel."
+      },
     ];
     const bankRebus = [
-      { question: '<span class="rebus">LA + NOTE</span>', answer: "lanote", aliases:["la note","note"], hint: "Assemble simplement.", html:true },
-      { question: '<span class="rebus">P + HOMME</span>', answer: "pomme", aliases:["la pomme"], hint: "Phonétique avant orthographe.", html:true },
-      { question: '<span class="rebus">VER + EAU</span>', answer: "verredeau", aliases:["verre deau","verre d eau","verre d\'eau","verre d’eau"], hint: "Récipient + liquide.", html:true },
-      { question: '<span class="rebus">SOI + SCIE</span>', answer: "saucisse", aliases:["la saucisse"], hint: "Phonétique.", html:true },
-      { question: '<span class="rebus">🍞 + 🍫</span>', answer: "painauchocolat", aliases:["pain au chocolat","chocolatine"], hint: "👀 Débat régional.", html:true },
+      { question: '<span class="rebus">SUN + GLASSES</span>', answer: "sunglasses", aliases:["sun glasses"], hint: "Just put the two words together.", html:true },
+      { question: '<span class="rebus">B + RAIN</span>', answer: "brain", aliases:["the brain"], hint: "It sounds like a part of your head.", html:true },
+      { question: '<span class="rebus">GLASS + WATER</span>', answer: "glassofwater", aliases:["glass of water","a glass of water"], hint: "Container + drink.", html:true },
+      { question: '<span class="rebus">FOOT + BALL</span>', answer: "football", aliases:["soccer"], hint: "A very popular sport.", html:true },
+      { question: '<span class="rebus">🍞 + 🍫</span>', answer: "chocolatebread", aliases:["chocolate bread"], hint: "Bread + chocolate. Delicious.", html:true },
     ];
 
     // ============================================================
-    //  VOS VIDEOS
+    //  YOUR VIDEOS
     // ============================================================
     const CUSTOM_REWARDS = [
       {type:"video", url:"./medias/café.mp4"},
@@ -299,7 +324,7 @@
       {type:"video", url:"./medias/ronaldo.mp4"},
       {type:"video", url:"./medias/gmod.mp4"},
     ];
-    // Défaut sans YouTube
+    // Default without YouTube
     const DEFAULT_REWARDS = [
       { type:"video", url:"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" },
       { type:"video", url:"https://samplelib.com/lib/preview/mp4/sample-5s.mp4" },
@@ -308,7 +333,7 @@
     ];
 
     // ============================================================
-    //  ETAT / AIDE
+    //  STATE / HELPERS
     // ============================================================
     let currentCategory=null, currentPuzzle=null, triesLeft=3, hintShown=false;
     let lastReward=null;
@@ -334,7 +359,7 @@
       currentPuzzle = pickRandom(bank);
       triesLeft = 3; hintShown = false;
       $("#tries").textContent = triesLeft;
-      $("#game-cat").textContent = { math:"Mathématiques", riddle:"Devinettes", rebus:"Rébus" }[currentCategory];
+      $("#game-cat").textContent = { math:"Math", riddle:"Riddles", rebus:"Rebus" }[currentCategory];
 
       const q = $("#question");
       if (currentPuzzle.html) q.innerHTML = currentPuzzle.question; else q.textContent = currentPuzzle.question;
@@ -353,14 +378,14 @@
     }
 
     // ============================================================
-    //  INDICE (sémantique)
+    //  HINT (semantic)
     // ============================================================
     function toggleHint(){
       if (!currentPuzzle) return;
       const hint = $("#hint");
       const btn  = $("#hint-btn");
       if (!hintShown){
-        hint.textContent = "💡 " + (currentPuzzle?.hint || "Pas d’indice pour celle-ci.");
+        hint.textContent = "💡 " + (currentPuzzle?.hint || "No hint for this one.");
         hint.style.display="block";
         hint.setAttribute("aria-hidden","false");
         btn.setAttribute("aria-expanded","true");
@@ -381,7 +406,7 @@
       const raw = $("#answer").value;
       if (!raw.trim()){
         pulse($("#answer"));
-        $("#feedback").textContent = "Entre une réponse.";
+        $("#feedback").textContent = "Type an answer.";
         $("#feedback").className = "feedback warn";
         return;
       }
@@ -397,12 +422,12 @@
         triesLeft--; playKo();
         if (triesLeft<=0){
           $("#tries").textContent = 0;
-          $("#feedback").innerHTML = `Raté. La solution était <b>${currentPuzzle.answer}</b>.`;
+          $("#feedback").innerHTML = `Out of tries. The correct answer was <b>${currentPuzzle.answer}</b>.`;
           $("#feedback").className = "feedback ko";
           setTimeout(()=> startGame(currentCategory), 1200);
         } else {
           $("#tries").textContent = triesLeft;
-          $("#feedback").textContent = "Non… essaie encore.";
+          $("#feedback").textContent = "Nope… try again.";
           $("#feedback").className = "feedback ko";
           pulse($("#answer")); $("#answer").select();
         }
@@ -424,7 +449,7 @@
           activeMedia.el.load();
         }
       }catch(e){}
-      $("#video-reward").innerHTML = '<button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Activer le son</button>';
+      $("#video-reward").innerHTML = '<button id="sound-nudge" class="sound-nudge" onclick="forcePlayWithSound()">Turn sound on</button>';
       activeMedia = { type:null, el:null };
     }
 
@@ -435,7 +460,7 @@
     }
 
     // ============================================================
-    //  RECOMPENSE (AUTOPLAY AVEC SON)
+    //  REWARD (AUTOPLAY WITH SOUND)
     // ============================================================
     async function showRewardWithSound(forceUserGesture=false){
       const pool = getRewardsPool();
@@ -446,7 +471,9 @@
       stopActiveMedia();
 
       const same = $("#again-same");
-      same.textContent = currentCategory ? `Rejouer ${ {math:"(Maths)", riddle:"(Devinettes)", rebus:"(Rébus)"}[currentCategory] }` : "Rejouer même catégorie";
+      same.textContent = currentCategory
+        ? `Play again ${ {math:"(Math)", riddle:"(Riddles)", rebus:"(Rebus)"}[currentCategory] }`
+        : "Play same category again";
       $("#copy-state").textContent = "";
 
       showScreen("reward");
@@ -461,7 +488,7 @@
         tryPlay();
       } else {
         const img = document.createElement("img");
-        img.src = pick.url; img.alt = "GIF récompense";
+        img.src = pick.url; img.alt = "Reward GIF";
         wrap.appendChild(img);
         activeMedia = { type:null, el:img };
       }
@@ -472,21 +499,21 @@
       const url = lastReward.url;
       try{
         await navigator.clipboard.writeText(url);
-        $("#copy-state").textContent = "Lien copié ✅";
+        $("#copy-state").textContent = "Link copied ✅";
         $("#copy-state").className = "feedback ok";
       }catch(e){
-        $("#copy-state").textContent = "Copie impossible. Lien : " + url;
+        $("#copy-state").textContent = "Copy failed. Link: " + url;
         $("#copy-state").className = "feedback warn";
       }
     }
 
     // ============================================================
-    //  CELEBRATION — confettis allégés (faible charge)
+    //  CELEBRATION — lightweight confetti (low load)
     // ============================================================
     async function celebrate(){
       playOk();
       if (window.confetti){
-        // Un seul petit burst + un mini burst décalé
+        // One small burst + a tiny delayed burst
         confetti({
           particleCount: 18,
           startVelocity: 22,
@@ -503,9 +530,12 @@
       await sleep(180);
     }
 
-    // Entrée douce au chargement
+    // Smooth fade-in on load
     window.addEventListener("load", ()=>{
-      document.body.animate([{opacity:0, transform:"translateY(6px)"},{opacity:1, transform:"none"}],{duration:200, easing:"ease-out"});
+      document.body.animate(
+        [{opacity:0, transform:"translateY(6px)"},{opacity:1, transform:"none"}],
+        {duration:200, easing:"ease-out"}
+      );
     });
   </script>
 </body>

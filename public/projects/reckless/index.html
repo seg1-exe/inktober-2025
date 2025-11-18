@@ -137,6 +137,7 @@
       reset() {
         this.x = 180;
         this.y = getBandCenterY(lanes - 1, this.size);
+        this.jumping = false;
       }
     };
 
@@ -160,7 +161,12 @@
     createCars();
 
     function rectsCollide(a, b) {
-      return !(a.x + a.size < b.x || a.x > b.x + b.w || a.y + a.size < b.y || a.y > b.y + b.h);
+      return !(
+        a.x + a.size < b.x ||
+        a.x > b.x + b.w ||
+        a.y + a.size < b.y ||
+        a.y > b.y + b.h
+      );
     }
 
     function animateJump(targetY, laneIndex) {
@@ -180,14 +186,17 @@
           player.y = targetY;
           player.jumping = false;
 
-          // ✅ Check final position only at the end of the jump
-          const currentRoute = Math.floor((canvas.height - player.y - player.size / 2) / laneHeight);
+          // Calcule combien de routes ont été réellement franchies
+          const currentRoute = Math.floor(
+            (canvas.height - player.y - player.size / 2) / laneHeight
+          );
+
           if (currentRoute > maxRouteReached) {
             score++;
             maxRouteReached = currentRoute;
           }
 
-          // ✅ Reset only if we actually reached the top
+          // Si on a dépassé le haut => nouvelle manche
           if (laneIndex < 0) {
             player.y = getBandCenterY(lanes - 1);
             difficulty += 0.3;
@@ -204,17 +213,39 @@
     function movePlayer(direction) {
       if (gameOver || player.jumping) return;
 
-      let laneIndex = Math.round((player.y + player.size / 2) / laneHeight) - 1;
-      if (direction === "up") laneIndex--;
-      if (direction === "down") {
-        if (laneIndex >= lanes - 1) return;
-        laneIndex++;
+      // -------- Déplacement horizontal : pas de saut, juste un slide --------
+      if (direction === "left") {
+        player.move(-40, 0);
+        return;
+      }
+      if (direction === "right") {
+        player.move(40, 0);
+        return;
       }
 
-      if (direction === "left") player.move(-40, 0);
-      if (direction === "right") player.move(40, 0);
+      // -------- Déplacement vertical : on change de bande + saut animé ------
+      let laneIndex = Math.round(
+        (player.y + player.size / 2) / laneHeight
+      ) - 1;
 
-      const targetY = getBandCenterY(laneIndex);
+      if (direction === "up") {
+        laneIndex--;
+      } else if (direction === "down") {
+        if (laneIndex >= lanes - 1) return; // déjà tout en bas
+        laneIndex++;
+      } else {
+        return;
+      }
+
+      // Autoriser au max -1 (zone au-dessus de la dernière route)
+      if (laneIndex < -1) laneIndex = -1;
+      if (laneIndex > lanes - 1) laneIndex = lanes - 1;
+
+      const targetY =
+        laneIndex >= 0
+          ? getBandCenterY(laneIndex)
+          : -player.size; // petit saut au-dessus de l'écran quand on sort par le haut
+
       animateJump(targetY, laneIndex);
     }
 
@@ -267,7 +298,12 @@
         for (let col = 0; col < cols; col++) {
           const isWhite = (row + col) % 2 === 0;
           ctx.fillStyle = isWhite ? "#fff" : "#000";
-          ctx.fillRect(offsetX + col * tileSize, offsetY + row * tileSize, tileSize, tileSize);
+          ctx.fillRect(
+            offsetX + col * tileSize,
+            offsetY + row * tileSize,
+            tileSize,
+            tileSize
+          );
         }
       }
     }
@@ -276,10 +312,25 @@
       ctx.fillStyle = car.color;
       ctx.fillRect(car.x, car.y, car.w, car.h);
       ctx.fillStyle = "#ccc";
-      ctx.fillRect(car.x + car.w * 0.25, car.y + car.h * 0.2, car.w * 0.5, car.h * 0.6);
+      ctx.fillRect(
+        car.x + car.w * 0.25,
+        car.y + car.h * 0.2,
+        car.w * 0.5,
+        car.h * 0.6
+      );
       ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillRect(car.x + car.w * 0.25, car.y + 4, car.w * 0.5, 6);
-      ctx.fillRect(car.x + car.w * 0.25, car.y + car.h - 10, car.w * 0.5, 6);
+      ctx.fillRect(
+        car.x + car.w * 0.25,
+        car.y + 4,
+        car.w * 0.5,
+        6
+      );
+      ctx.fillRect(
+        car.x + car.w * 0.25,
+        car.y + car.h - 10,
+        car.w * 0.5,
+        6
+      );
     }
 
     function update() {
@@ -299,11 +350,18 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < lanes - 1; i++) drawRoad(i * laneHeight);
+
+      for (let i = 0; i < lanes - 1; i++) {
+        drawRoad(i * laneHeight);
+      }
+
       drawSafeZone(canvas.height - safeZoneHeight);
+
       for (const car of cars) drawCar(car);
+
       ctx.fillStyle = player.color;
       ctx.fillRect(player.x, player.y, player.size, player.size);
+
       ctx.fillStyle = "#fff";
       ctx.font = "18px monospace";
       ctx.fillText("Roads crossed: " + score, 10, 25);
@@ -317,7 +375,9 @@
 
     function endGame() {
       gameOver = true;
-      cancelAnimationFrame(animationId);
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+      }
       const routeText = score === 1 ? `${score} road crossed` : `${score} roads crossed`;
       finalScoreText.textContent = `Final score: ${routeText}`;
       gameOverScreen.style.display = "flex";
@@ -336,6 +396,8 @@
     }
 
     restartBtn.addEventListener("click", restart);
+
+    // Start game
     loop();
   </script>
 </body>

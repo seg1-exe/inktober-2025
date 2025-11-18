@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inktober 2025 - Day 5</title>
   <style>
-    body { 
-      margin:0; 
-      background:#23223F; 
-      display:flex; 
-      justify-content:center; 
-      align-items:center; 
-      height:100vh; 
+    body {
+      margin:0;
+      background:#23223F;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
     }
     canvas {
       width: 100%;
@@ -33,7 +33,8 @@
     sctx.imageSmoothingEnabled = false;
 
     const world = document.createElement('canvas');
-    world.width = VIRT_W; world.height = VIRT_H;
+    world.width = VIRT_W;
+    world.height = VIRT_H;
     const ctx = world.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
@@ -47,20 +48,19 @@
     let velY = 0;
     const GROUND_Y = 140;
 
-    const GRAV = 0.20;    
+    const GRAV = 0.20;
     const JUMP_FORCE = -6.2;
 
     const obstacles = [];
 
     // ---------- Deer PNG ----------
     const deerImg = new Image();
-    deerImg.src = "/projects/deer/deer.png"; 
-    let deerW = 0, deerH = 0;
+    deerImg.src = "/projects/deer/deer.png";
+    let deerW = 16, deerH = 16; // default values, updated on load
 
     deerImg.onload = () => {
-      deerW = deerImg.width/8;
-      deerH = deerImg.height/8;
-      requestAnimationFrame(loop);
+      deerW = deerImg.width / 8;
+      deerH = deerImg.height / 8;
     };
 
     // ---------- Assets ----------
@@ -72,15 +72,29 @@
     treeImgs[1].src = "/projects/deer/tree2.png";
     treeImgs[2].src = "/projects/deer/tree3.png";
 
+    // Helper to know if an image is really usable
+    function isImgReady(img) {
+      return img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+    }
+
     // ---------- Obstacles ----------
     function spawnTree() {
       const sprite = treeImgs[Math.floor(Math.random() * treeImgs.length)];
+      if (!isImgReady(sprite)) {
+        // If the sprite isn't loaded yet, skip this spawn
+        return;
+      }
       const scale = 0.1;
+      const sw = sprite.naturalWidth;
+      const sh = sprite.naturalHeight;
+      const w = sw * scale;
+      const h = sh * scale;
+
       obstacles.push({
         x: VIRT_W + 20,
-        y: GROUND_Y - sprite.height * scale + 8,
-        w: sprite.width * scale,
-        h: sprite.height * scale,
+        y: GROUND_Y - h + 8,
+        w,
+        h,
         spr: sprite
       });
     }
@@ -110,20 +124,27 @@
     let speed = 2.4;
 
     function update(dt) {
+      // Gravity + jump
       velY += GRAV;
       deerY += velY;
-      if (deerY >= GROUND_Y) { deerY = GROUND_Y; velY = 0; }
+      if (deerY >= GROUND_Y) {
+        deerY = GROUND_Y;
+        velY = 0;
+      }
 
+      // Spawn trees
       treeTimer -= dt;
       if (treeTimer <= 0 && running) {
         spawnTree();
         treeTimer = 1.5 + Math.random() * 1.0;
       }
 
+      // Move obstacles
       for (const o of obstacles) {
         o.x -= speed * (dt * 60);
       }
 
+      // Collision
       const hitbox = {
         x: deerX + 4,
         y: deerY - (deerH * 0.7),
@@ -141,10 +162,12 @@
         }
       }
 
+      // Cleanup off-screen trees
       while (obstacles.length && obstacles[0].x + obstacles[0].w < -10) {
         obstacles.shift();
       }
 
+      // Score + speed
       if (running) {
         score += speed * dt * 10;
         speed = 2.4 + score / 500;
@@ -156,7 +179,7 @@
       ctx.fillStyle = "#87ceeb";
       ctx.fillRect(0, 0, VIRT_W, GROUND_Y);
 
-      if (groundImg.complete) {
+      if (isImgReady(groundImg)) {
         for (let x = 0; x < VIRT_W; x += groundImg.width) {
           ctx.drawImage(groundImg, x, GROUND_Y, groundImg.width, groundImg.height);
         }
@@ -166,23 +189,27 @@
     function draw() {
       drawBackground();
 
+      // Obstacles
       for (const o of obstacles) {
-        if (o.spr.complete) {
+        if (isImgReady(o.spr)) {
           ctx.drawImage(o.spr, o.x | 0, o.y | 0, o.w, o.h);
         }
       }
 
-      if (deerImg.complete && deerImg.naturalWidth > 0) {
+      // Deer
+      if (isImgReady(deerImg)) {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(deerImg, deerX, deerY - deerH, deerW, deerH);
       }
 
+      // HUD
       ctx.fillStyle = '#111';
       ctx.fillRect(4, 4, 90, 12);
       ctx.fillStyle = '#fff';
       ctx.font = '10px monospace';
       ctx.fillText("SCORE " + Math.floor(score), 8, 13);
 
+      // Start screen
       if (!running && !gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(0, 0, VIRT_W, VIRT_H);
@@ -191,6 +218,7 @@
         ctx.fillText("TAP the screen or press SPACE to play", 18, 90);
       }
 
+      // Game over
       if (gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(0, 0, VIRT_W, VIRT_H);
@@ -211,11 +239,13 @@
       gameOver = false;
       running = true;
       speed = 2.4;
+      treeTimer = 0;
     }
 
     // ---------- Loop ----------
-    let last = performance.now();
+    let last = 0;
     function loop(now){
+      if (!last) last = now;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
 
@@ -229,6 +259,9 @@
 
       requestAnimationFrame(loop);
     }
+
+    // Start loop regardless of image loading (fix)
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
